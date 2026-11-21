@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "Elfat7.Domain/1.0.0": {
+        "runtime": {
+          "Elfat7.Domain.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Elfat7.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

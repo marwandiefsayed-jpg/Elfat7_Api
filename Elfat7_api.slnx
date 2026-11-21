@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Elfat7.Domain/Elfat7.Domain.csproj" />
+    <Project Path="src/Elfat7.Application/Elfat7.Application.csproj" />
+    <Project Path="src/Elfat7.Infrastructure/Elfat7.Infrastructure.csproj" />
+    <Project Path="Elfat7_api/Elfat7_api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Elfat7.UnitTests/Elfat7.UnitTests.csproj" />
+  </Folder>
+</Solution>
