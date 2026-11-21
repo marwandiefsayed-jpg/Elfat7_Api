@@ -1,0 +1,6 @@
+@Elfat7_api_HostAddress = http://localhost:5205
+
+GET {{Elfat7_api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
