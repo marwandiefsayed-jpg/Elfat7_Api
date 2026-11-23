@@ -11,14 +11,25 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// 2. Add Clean Architecture Layers
+// 2. Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+// 3. Add Clean Architecture Layers
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
-// 3. Add Controllers
+// 4. Add Controllers
 builder.Services.AddControllers();
 
-// 4. Configure Swagger / OpenAPI
+// 5. Configure Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -32,7 +43,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// 5. Database Auto-Creation & Seeding
+// 6. Database Auto-Creation
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -41,9 +52,9 @@ using (var scope = app.Services.CreateScope())
         var db = scope.ServiceProvider.GetRequiredService<Elfat7DbContext>();
         logger.LogInformation("التحقق من إنشاء قاعدة البيانات وجداول النظام...");
         await db.Database.EnsureCreatedAsync();
-        logger.LogInformation("بدء تهيئة البيانات الأولية الافتراضية (Seeding)...");
-        await DatabaseSeeder.SeedAsync(db);
-        logger.LogInformation("تمت تهيئة قاعدة البيانات والبيانات الأولية بنجاح.");
+        logger.LogInformation("تم التأكد من وجود قاعدة البيانات والجداول (البيانات الأولية معطلة).");
+        // Seeding is disabled to keep the database empty:
+        // await DatabaseSeeder.SeedAsync(db);
     }
     catch (Exception ex)
     {
@@ -51,18 +62,22 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// 6. Global Exception Handling Middleware
+// 7. Global Exception Handling Middleware
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// 7. HTTP Pipeline
+// 8. Enable CORS
+app.UseCors("AllowAll");
+
+// 9. HTTP Pipeline & Swagger
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "شركة الفتح للحاصلات الزراعية v1");
-    c.RoutePrefix = string.Empty; // Swagger at root URL
+    c.RoutePrefix = "swagger";
 });
 
-app.UseHttpsRedirection();
+// Redirect root to swagger so both '/' and '/swagger' work
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.MapControllers();
 

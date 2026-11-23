@@ -24,6 +24,26 @@ public class UpdateProductCategoryDto
     public bool IsActive { get; set; } = true;
 }
 
+public class ProductSellingUnitDto
+{
+    public int Id { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public decimal ConversionFactor { get; set; } = 1;
+    public decimal SellingPrice { get; set; }
+    public string SellingPriceFormatted => ArabicLocalizationHelper.FormatCurrency(SellingPrice);
+    public decimal PurchasePrice { get; set; }
+    public bool IsDefault { get; set; }
+}
+
+public class CreateProductSellingUnitDto
+{
+    public string UnitName { get; set; } = string.Empty;
+    public decimal ConversionFactor { get; set; } = 1;
+    public decimal SellingPrice { get; set; }
+    public decimal PurchasePrice { get; set; }
+    public bool IsDefault { get; set; }
+}
+
 public class ProductDto
 {
     public string Code { get; set; } = string.Empty;
@@ -40,6 +60,7 @@ public class ProductDto
     public decimal TotalStockQuantity { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    public List<ProductSellingUnitDto> SellingUnits { get; set; } = new();
 }
 
 public class ProductDetailsDto : ProductDto
@@ -59,22 +80,24 @@ public class ProductWarehouseStockDto
 public class CreateProductDto
 {
     public string Name { get; set; } = string.Empty;
-    public string CategoryCode { get; set; } = string.Empty;
+    public string? CategoryCode { get; set; }
     public string Unit { get; set; } = "طن";
     public decimal DefaultPurchasePrice { get; set; }
     public decimal DefaultSellingPrice { get; set; }
     public string? Description { get; set; }
+    public List<CreateProductSellingUnitDto> SellingUnits { get; set; } = new();
 }
 
 public class UpdateProductDto
 {
     public string Name { get; set; } = string.Empty;
-    public string CategoryCode { get; set; } = string.Empty;
+    public string? CategoryCode { get; set; }
     public string Unit { get; set; } = "طن";
     public decimal DefaultPurchasePrice { get; set; }
     public decimal DefaultSellingPrice { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
+    public List<CreateProductSellingUnitDto> SellingUnits { get; set; } = new();
 }
 
 public class ProductFilterDto : PagedFilterRequest

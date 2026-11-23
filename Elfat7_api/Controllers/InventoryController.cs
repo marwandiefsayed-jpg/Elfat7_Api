@@ -48,4 +48,21 @@ public class InventoryController : ControllerBase
         var fileName = $"StockMovements_{DateTime.UtcNow:yyyyMMdd_HHmm}.pdf";
         return File(pdfBytes, "application/pdf", fileName);
     }
+
+    [HttpPost("update-stock")]
+    public async Task<IActionResult> UpdateStockQuantity([FromBody] UpdateStockQuantityDto dto, CancellationToken ct)
+    {
+        var result = await _inventoryService.UpdateStockQuantityAsync(dto, ct);
+        if (!result.Succeeded) return BadRequest(result);
+        return Ok(result);
+    }
+
+    [HttpPost("add-stock")]
+    [HttpPost("incoming-stock")]
+    public async Task<IActionResult> AddIncomingStock([FromBody] AddIncomingStockDto dto, CancellationToken ct)
+    {
+        var result = await _inventoryService.AddIncomingStockAsync(dto, ct);
+        if (!result.Succeeded) return BadRequest(result);
+        return Ok(result);
+    }
 }

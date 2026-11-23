@@ -13,6 +13,7 @@ public class Elfat7DbContext : DbContext, IApplicationDbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductSellingUnit> ProductSellingUnits => Set<ProductSellingUnit>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<WarehouseStock> WarehouseStocks => Set<WarehouseStock>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();

@@ -177,4 +177,56 @@ public class InventoryAndCostingTests
         var checkStock = await context.WarehouseStocks.FirstAsync(ws => ws.WarehouseId == whSource.Id);
         checkStock.Quantity.Should().Be(5m); // لم يتغير الرصيد ولم يصبح سالباً
     }
+
+    [Fact]
+    public async Task UpdateStockQuantity_WithSellingUnitConversion_ShouldConvertAndSetStockCorrectly()
+    {
+        // Arrange
+        var context = CreateInMemoryDbContext();
+        var category = new ProductCategory { Code = "CAT-01", Name = "حبوب وغلال" };
+        var product = new Product
+        {
+            Code = "PRD-0077",
+            Name = "عدس أصفر مجروش",
+            Unit = "كجم",
+            Category = category,
+            DefaultSellingPrice = 50m,
+            AverageCost = 40m,
+            SellingUnits = new List<ProductSellingUnit>
+            {
+                new() { UnitName = "شكارة 25كجم", ConversionFactor = 25, SellingPrice = 1200m, IsDefault = true }
+            }
+        };
+        var warehouse = new Warehouse { Code = "WH-01", Name = "مخزن العبور" };
+
+        await context.ProductCategories.AddAsync(category);
+        await context.Products.AddAsync(product);
+        await context.Warehouses.AddAsync(warehouse);
+        await context.SaveChangesAsync();
+
+        var inventoryService = new InventoryService(context);
+
+        // Act: ضبط رصيد المخزن إلى 40 شكارة 25كجم (تعادل 40 * 25 = 1000 كجم)
+        var result = await inventoryService.UpdateStockQuantityAsync(new UpdateStockQuantityDto
+        {
+            WarehouseCode = "WH-01",
+            ProductCode = "PRD-0077",
+            Unit = "شكارة 25كجم",
+            ConversionFactor = 25,
+            Quantity = 40,
+            Notes = "جرد دوري شهري"
+        });
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        result.Data!.Quantity.Should().Be(1000m); // الرصيد المخزني الفعلي بالوحدة الأساسية (كجم)
+
+        var stock = await context.WarehouseStocks.FirstAsync(ws => ws.ProductId == product.Id && ws.WarehouseId == warehouse.Id);
+        stock.Quantity.Should().Be(1000m);
+
+        var movement = await context.StockMovements.FirstOrDefaultAsync(m => m.ProductId == product.Id);
+        movement.Should().NotBeNull();
+        movement!.Quantity.Should().Be(1000m);
+        movement.MovementType.Should().Be(StockMovementType.AdjustmentIncrease);
+    }
 }

@@ -190,4 +190,64 @@ public class SalesAndDeliveryTests
         movement.Should().NotBeNull();
         movement!.Quantity.Should().Be(2m);
     }
+
+    [Fact]
+    public async Task SalesInvoice_WithCustomSellingUnit_ShouldSaveUnitAndConversionFactor()
+    {
+        // Arrange
+        var context = CreateInMemoryDbContext();
+        var customer = new Customer { Code = "CUST-0099", Name = "محمود للتجارة", Phone = "01011223344", Balance = 0 };
+        var category = new ProductCategory { Code = "CAT-01", Name = "حبوب وغلال" };
+        var product = new Product
+        {
+            Code = "PRD-0099",
+            Name = "أرز أبيض",
+            Unit = "كجم",
+            Category = category,
+            DefaultSellingPrice = 30m,
+            AverageCost = 25m,
+            SellingUnits = new List<ProductSellingUnit>
+            {
+                new() { UnitName = "شكارة 50كجم", ConversionFactor = 50, SellingPrice = 1450m, IsDefault = true },
+                new() { UnitName = "كجم", ConversionFactor = 1, SellingPrice = 30m, IsDefault = false }
+            }
+        };
+
+        await context.Customers.AddAsync(customer);
+        await context.ProductCategories.AddAsync(category);
+        await context.Products.AddAsync(product);
+        await context.SaveChangesAsync();
+
+        var invoiceService = new SalesInvoiceService(context);
+
+        // Act: بيع 10 شكاير بسعر 1450 ج.م للشكارة (إجمالي 14500 ج.م، تعادل 500 كجم)
+        var result = await invoiceService.CreateSalesInvoiceAsync(new CreateSalesInvoiceDto
+        {
+            CustomerCode = "CUST-0099",
+            AutoConfirm = true,
+            Items = new List<CreateSalesInvoiceItemDto>
+            {
+                new()
+                {
+                    ProductCode = "PRD-0099",
+                    Unit = "شكارة 50كجم",
+                    ConversionFactor = 50,
+                    Quantity = 10,
+                    UnitPrice = 1450m
+                }
+            }
+        });
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        result.Data!.TotalAmount.Should().Be(14500m);
+
+        var savedInv = await invoiceService.GetSalesInvoiceByNumberAsync(result.Data.InvoiceNumber);
+        savedInv.Should().NotBeNull();
+        savedInv!.Items.Should().HaveCount(1);
+        savedInv.Items[0].Unit.Should().Be("شكارة 50كجم");
+        savedInv.Items[0].ConversionFactor.Should().Be(50);
+        savedInv.Items[0].BaseQuantity.Should().Be(500); // 10 * 50
+        savedInv.Items[0].LineTotal.Should().Be(14500m);
+    }
 }

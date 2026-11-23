@@ -544,4 +544,198 @@ public class InventoryService : IInventoryService
             Notes = adjustment.Notes
         }, "تم تسجيل التسوية الجردية وتحديث أرصدة المخزون بنجاح");
     }
+
+    public async Task<Result<WarehouseStockDto>> UpdateStockQuantityAsync(UpdateStockQuantityDto dto, CancellationToken ct = default)
+    {
+        using var transaction = await _context.BeginTransactionAsync(ct);
+
+        var warehouse = await _context.Warehouses.FirstOrDefaultAsync(w => w.Code == dto.WarehouseCode, ct);
+        if (warehouse == null)
+            return Result<WarehouseStockDto>.Failure("المخزن المحدد غير موجود");
+
+        var product = await _context.Products
+            .Include(p => p.SellingUnits)
+            .FirstOrDefaultAsync(p => p.Code == dto.ProductCode, ct);
+        if (product == null)
+            return Result<WarehouseStockDto>.Failure("الصنف المحدد غير موجود");
+
+        // Determine conversion factor
+        decimal factor = 1;
+        if (dto.ConversionFactor.HasValue && dto.ConversionFactor.Value > 0)
+        {
+            factor = dto.ConversionFactor.Value;
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.Unit))
+        {
+            var unitMatch = product.SellingUnits.FirstOrDefault(u => u.UnitName == dto.Unit.Trim());
+            if (unitMatch != null && unitMatch.ConversionFactor > 0)
+            {
+                factor = unitMatch.ConversionFactor;
+            }
+        }
+
+        var newBaseQuantity = dto.Quantity * factor;
+        if (newBaseQuantity < 0)
+            return Result<WarehouseStockDto>.Failure("لا يمكن أن تكون كمية الرصيد بالمخزن سالبة");
+
+        var stock = await _context.WarehouseStocks
+            .FirstOrDefaultAsync(ws => ws.WarehouseId == warehouse.Id && ws.ProductId == product.Id, ct);
+
+        if (stock == null)
+        {
+            stock = new WarehouseStock
+            {
+                WarehouseId = warehouse.Id,
+                ProductId = product.Id,
+                Quantity = 0,
+                ReservedQuantity = 0,
+                LastUpdated = DateTime.UtcNow
+            };
+            await _context.WarehouseStocks.AddAsync(stock, ct);
+        }
+
+        var diff = newBaseQuantity - stock.Quantity;
+        stock.Quantity = newBaseQuantity;
+        stock.LastUpdated = DateTime.UtcNow;
+
+        if (diff != 0)
+        {
+            var movCount = await _context.StockMovements.CountAsync(ct);
+            var movNumber = $"MOV-{DateTime.UtcNow.Year}-{(movCount + 1):D5}";
+
+            var movement = new StockMovement
+            {
+                MovementNumber = movNumber,
+                WarehouseId = warehouse.Id,
+                ProductId = product.Id,
+                MovementType = diff > 0 ? StockMovementType.AdjustmentIncrease : StockMovementType.AdjustmentDecrease,
+                Quantity = diff,
+                UnitCost = product.AverageCost,
+                TotalCost = Math.Abs(diff) * product.AverageCost,
+                ReferenceNumber = $"ADJ-STK-{DateTime.UtcNow:yyyyMMdd-HHmm}",
+                Notes = $"تعديل رصيد المخزون مباشرة: تم ضبط الرصيد إلى {dto.Quantity} {dto.Unit ?? product.Unit} ({newBaseQuantity} {product.Unit}). {dto.Notes?.Trim()}"
+            };
+            await _context.StockMovements.AddAsync(movement, ct);
+        }
+
+        await _context.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return Result<WarehouseStockDto>.Success(new WarehouseStockDto
+        {
+            WarehouseCode = warehouse.Code,
+            WarehouseName = warehouse.Name,
+            ProductCode = product.Code,
+            ProductName = product.Name,
+            Unit = product.Unit,
+            Quantity = stock.Quantity,
+            ReservedQuantity = stock.ReservedQuantity,
+            AvailableQuantity = stock.AvailableQuantity,
+            AverageCost = product.AverageCost
+        }, $"تم تحديث رصيد صنف ({product.Name}) في مخزن ({warehouse.Name}) بنجاح إلى {dto.Quantity} {dto.Unit ?? product.Unit} ({newBaseQuantity} {product.Unit})");
+    }
+
+    public async Task<Result<WarehouseStockDto>> AddIncomingStockAsync(AddIncomingStockDto dto, CancellationToken ct = default)
+    {
+        if (dto.Quantity <= 0)
+            return Result<WarehouseStockDto>.Failure("الكمية الواردة يجب أن تكون أكبر من الصفر");
+
+        using var transaction = await _context.BeginTransactionAsync(ct);
+
+        var warehouse = await _context.Warehouses.FirstOrDefaultAsync(w => w.Code == dto.WarehouseCode, ct);
+        if (warehouse == null)
+            return Result<WarehouseStockDto>.Failure("المستودع المحدد غير موجود");
+
+        var product = await _context.Products
+            .Include(p => p.SellingUnits)
+            .FirstOrDefaultAsync(p => p.Code == dto.ProductCode, ct);
+        if (product == null)
+            return Result<WarehouseStockDto>.Failure("الصنف المحدد غير موجود");
+
+        decimal factor = 1;
+        if (dto.ConversionFactor.HasValue && dto.ConversionFactor.Value > 0)
+        {
+            factor = dto.ConversionFactor.Value;
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.Unit))
+        {
+            var unitMatch = product.SellingUnits.FirstOrDefault(u => u.UnitName == dto.Unit.Trim());
+            if (unitMatch != null && unitMatch.ConversionFactor > 0)
+            {
+                factor = unitMatch.ConversionFactor;
+            }
+        }
+
+        var incomingBaseQuantity = dto.Quantity * factor;
+        if (incomingBaseQuantity <= 0)
+            return Result<WarehouseStockDto>.Failure("الكمية الواردة بالوحدة الأساسية يجب أن تكون أكبر من الصفر");
+
+        var stock = await _context.WarehouseStocks
+            .FirstOrDefaultAsync(ws => ws.WarehouseId == warehouse.Id && ws.ProductId == product.Id, ct);
+
+        if (stock == null)
+        {
+            stock = new WarehouseStock
+            {
+                WarehouseId = warehouse.Id,
+                ProductId = product.Id,
+                Quantity = 0,
+                ReservedQuantity = 0,
+                LastUpdated = DateTime.UtcNow
+            };
+            await _context.WarehouseStocks.AddAsync(stock, ct);
+        }
+
+        var oldQty = stock.Quantity;
+        stock.Quantity += incomingBaseQuantity;
+        stock.LastUpdated = DateTime.UtcNow;
+
+        decimal unitCost = dto.UnitCost.HasValue && dto.UnitCost.Value > 0
+            ? dto.UnitCost.Value / factor
+            : product.AverageCost;
+
+        if (dto.UnitCost.HasValue && dto.UnitCost.Value > 0)
+        {
+            var oldTotalVal = oldQty * product.AverageCost;
+            var newIncomingVal = incomingBaseQuantity * unitCost;
+            var totalNewQty = oldQty + incomingBaseQuantity;
+            if (totalNewQty > 0)
+            {
+                product.AverageCost = Math.Round((oldTotalVal + newIncomingVal) / totalNewQty, 2);
+            }
+        }
+
+        var movCount = await _context.StockMovements.CountAsync(ct);
+        var movNumber = $"REC-{DateTime.UtcNow.Year}-{(movCount + 1):D5}";
+
+        var movement = new StockMovement
+        {
+            MovementNumber = movNumber,
+            WarehouseId = warehouse.Id,
+            ProductId = product.Id,
+            MovementType = StockMovementType.PurchaseReceipt,
+            Quantity = incomingBaseQuantity,
+            UnitCost = unitCost,
+            TotalCost = incomingBaseQuantity * unitCost,
+            ReferenceNumber = $"IN-STK-{DateTime.UtcNow:yyyyMMdd-HHmm}",
+            Notes = $"إضافة بضاعة واردة للمستودع: تم توريد {dto.Quantity} {dto.Unit ?? product.Unit} (= {incomingBaseQuantity} {product.Unit}). {dto.Notes?.Trim()}"
+        };
+        await _context.StockMovements.AddAsync(movement, ct);
+
+        await _context.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return Result<WarehouseStockDto>.Success(new WarehouseStockDto
+        {
+            WarehouseCode = warehouse.Code,
+            WarehouseName = warehouse.Name,
+            ProductCode = product.Code,
+            ProductName = product.Name,
+            Unit = product.Unit,
+            Quantity = stock.Quantity,
+            ReservedQuantity = stock.ReservedQuantity,
+            AvailableQuantity = stock.AvailableQuantity,
+            AverageCost = product.AverageCost
+        }, $"تمت إضافة {dto.Quantity} {dto.Unit ?? product.Unit} ({incomingBaseQuantity} {product.Unit}) بنجاح إلى رصيد مستودع ({warehouse.Name})");
+    }
 }

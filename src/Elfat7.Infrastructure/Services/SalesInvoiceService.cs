@@ -159,7 +159,8 @@ public class SalesInvoiceService : ISalesInvoiceService
             {
                 ProductCode = i.Product?.Code ?? "",
                 ProductName = i.Product?.Name ?? "",
-                Unit = i.Product?.Unit ?? "",
+                Unit = !string.IsNullOrWhiteSpace(i.Unit) ? i.Unit : (i.Product?.Unit ?? ""),
+                ConversionFactor = i.ConversionFactor > 0 ? i.ConversionFactor : 1,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
                 UnitCost = i.UnitCost,
@@ -212,12 +213,17 @@ public class SalesInvoiceService : ISalesInvoiceService
             var lineTotal = (item.Quantity * item.UnitPrice) - item.DiscountAmount;
             subTotal += (item.Quantity * item.UnitPrice);
 
+            var itemUnit = !string.IsNullOrWhiteSpace(item.Unit) ? item.Unit.Trim() : product.Unit;
+            var convFactor = item.ConversionFactor.HasValue && item.ConversionFactor.Value > 0 ? item.ConversionFactor.Value : 1;
+
             items.Add(new SalesInvoiceItem
             {
                 ProductId = product.Id,
+                Unit = itemUnit,
+                ConversionFactor = convFactor,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
-                UnitCost = product.AverageCost, // تسجيل متوسط التكلفة وقت البيع
+                UnitCost = product.AverageCost * convFactor, // تسجيل متوسط التكلفة وقت البيع معدل بوحدة البيع
                 DiscountAmount = item.DiscountAmount,
                 LineTotal = lineTotal > 0 ? lineTotal : 0,
                 DeliveredQuantity = 0

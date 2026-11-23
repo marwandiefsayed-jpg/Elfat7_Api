@@ -6,7 +6,7 @@ public class Product : BaseEntity
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public int CategoryId { get; set; }
+    public int? CategoryId { get; set; }
     public ProductCategory? Category { get; set; }
     
     // الوحدة (طن / كيلو / شيكارة 50كجم / جوال / كرتونة)
@@ -21,4 +21,5 @@ public class Product : BaseEntity
 
     public ICollection<WarehouseStock> WarehouseStocks { get; set; } = new List<WarehouseStock>();
     public ICollection<StockMovement> StockMovements { get; set; } = new List<StockMovement>();
+    public ICollection<ProductSellingUnit> SellingUnits { get; set; } = new List<ProductSellingUnit>();
 }

@@ -210,20 +210,23 @@ public class DeliveryService : IDeliveryService
                 return Result<DeliveryDto>.Failure($"الكمية المصروفة ({item.Quantity}) تتجاوز الكمية المتبقية للتسليم في الفاتورة ({invoiceItem.RemainingQuantity}) للصنف {product.Name}");
             }
 
-            // التحقق من كفاية المخزون الفعلي في المخزن المحدد (منع المخزون السالب)
+            // التحقق من كفاية المخزون الفعلي في المخزن المحدد بالوحدة الأساسية (معامل التحويل)
+            var convFactor = invoiceItem.ConversionFactor > 0 ? invoiceItem.ConversionFactor : 1;
+            var baseDeductQty = item.Quantity * convFactor;
+
             var stock = await _context.WarehouseStocks
                 .FirstOrDefaultAsync(ws => ws.WarehouseId == warehouse.Id && ws.ProductId == product.Id, ct);
 
-            if (stock == null || stock.AvailableQuantity < item.Quantity)
+            if (stock == null || stock.AvailableQuantity < baseDeductQty)
             {
-                return Result<DeliveryDto>.Failure($"الرصيد المتاح من صنف {product.Name} في مخزن {warehouse.Name} غير كافٍ. المتاح حالياً: {(stock?.AvailableQuantity ?? 0)} {product.Unit} فقط");
+                return Result<DeliveryDto>.Failure($"الرصيد المتاح من صنف {product.Name} في مخزن {warehouse.Name} غير كافٍ. المتاح حالياً: {(stock?.AvailableQuantity ?? 0)} {product.Unit} فقط (المطلوب: {baseDeductQty} {product.Unit})");
             }
 
-            // خصم الكمية من المخزن
-            stock.Quantity -= item.Quantity;
+            // خصم الكمية من المخزن بالوحدة الأساسية
+            stock.Quantity -= baseDeductQty;
             stock.LastUpdated = DateTime.UtcNow;
 
-            // تحديث الكمية المسلمة في الفاتورة
+            // تحديث الكمية المسلمة في الفاتورة بوحدة الفاتورة
             invoiceItem.DeliveredQuantity += item.Quantity;
 
             deliveryItems.Add(new DeliveryItem
@@ -240,11 +243,11 @@ public class DeliveryService : IDeliveryService
                 WarehouseId = warehouse.Id,
                 ProductId = product.Id,
                 MovementType = StockMovementType.SalesDelivery,
-                Quantity = -item.Quantity,
+                Quantity = -baseDeductQty, // خصم بالوحدة الأساسية للمخزن
                 UnitCost = invoiceItem.UnitCost,
-                TotalCost = item.Quantity * invoiceItem.UnitCost,
+                TotalCost = baseDeductQty * invoiceItem.UnitCost,
                 ReferenceNumber = deliveryNumber,
-                Notes = $"صرف وتسليم بضاعة للعميل بموجب فاتورة {invoice.InvoiceNumber}"
+                Notes = $"صرف وتسليم بضاعة للعميل بموجب فاتورة {invoice.InvoiceNumber} ({item.Quantity} {invoiceItem.Unit ?? product.Unit})"
             });
         }
 

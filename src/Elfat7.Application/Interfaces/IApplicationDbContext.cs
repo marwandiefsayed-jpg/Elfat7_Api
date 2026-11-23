@@ -9,6 +9,7 @@ public interface IApplicationDbContext
     DbSet<Supplier> Suppliers { get; }
     DbSet<ProductCategory> ProductCategories { get; }
     DbSet<Product> Products { get; }
+    DbSet<ProductSellingUnit> ProductSellingUnits { get; }
     DbSet<Warehouse> Warehouses { get; }
     DbSet<WarehouseStock> WarehouseStocks { get; }
     DbSet<StockMovement> StockMovements { get; }

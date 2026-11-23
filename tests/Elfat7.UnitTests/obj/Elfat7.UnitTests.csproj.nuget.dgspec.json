@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\tests\\Elfat7.UnitTests\\Elfat7.UnitTests.csproj": {}
+    "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\tests\\Elfat7.UnitTests\\Elfat7.UnitTests.csproj": {}
   },
   "projects": {
-    "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Application\\Elfat7.Application.csproj": {
+    "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Application\\Elfat7.Application.csproj",
+        "projectUniqueName": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj",
         "projectName": "Elfat7.Application",
-        "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Application\\Elfat7.Application.csproj",
+        "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj",
         "packagesPath": "C:\\Users\\marwa\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Application\\obj\\",
+        "outputPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -34,8 +34,8 @@
             "framework": "net8.0",
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj": {
-                "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj"
+              "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj": {
+                "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj"
               }
             }
           }
@@ -90,14 +90,14 @@
         }
       }
     },
-    "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj": {
+    "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj",
+        "projectUniqueName": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj",
         "projectName": "Elfat7.Domain",
-        "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj",
+        "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj",
         "packagesPath": "C:\\Users\\marwa\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\obj\\",
+        "outputPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -158,14 +158,14 @@
         }
       }
     },
-    "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj": {
+    "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj",
+        "projectUniqueName": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj",
         "projectName": "Elfat7.Infrastructure",
-        "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj",
+        "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj",
         "packagesPath": "C:\\Users\\marwa\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Infrastructure\\obj\\",
+        "outputPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -188,11 +188,11 @@
             "framework": "net8.0",
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Application\\Elfat7.Application.csproj": {
-                "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Application\\Elfat7.Application.csproj"
+              "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj": {
+                "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj"
               },
-              "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj": {
-                "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj"
+              "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj": {
+                "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj"
               }
             }
           }
@@ -247,14 +247,14 @@
         }
       }
     },
-    "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\tests\\Elfat7.UnitTests\\Elfat7.UnitTests.csproj": {
+    "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\tests\\Elfat7.UnitTests\\Elfat7.UnitTests.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\tests\\Elfat7.UnitTests\\Elfat7.UnitTests.csproj",
+        "projectUniqueName": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\tests\\Elfat7.UnitTests\\Elfat7.UnitTests.csproj",
         "projectName": "Elfat7.UnitTests",
-        "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\tests\\Elfat7.UnitTests\\Elfat7.UnitTests.csproj",
+        "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\tests\\Elfat7.UnitTests\\Elfat7.UnitTests.csproj",
         "packagesPath": "C:\\Users\\marwa\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\tests\\Elfat7.UnitTests\\obj\\",
+        "outputPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\tests\\Elfat7.UnitTests\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -277,14 +277,14 @@
             "framework": "net8.0",
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Application\\Elfat7.Application.csproj": {
-                "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Application\\Elfat7.Application.csproj"
+              "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj": {
+                "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj"
               },
-              "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj": {
-                "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Domain\\Elfat7.Domain.csproj"
+              "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj": {
+                "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Domain\\Elfat7.Domain.csproj"
               },
-              "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj": {
-                "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj"
+              "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj": {
+                "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj"
               }
             }
           }

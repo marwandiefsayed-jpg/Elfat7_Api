@@ -36,11 +36,14 @@ public class SalesInvoiceItem : BaseEntity
     public int ProductId { get; set; }
     public Product? Product { get; set; }
     
-    public decimal Quantity { get; set; }
-    public decimal UnitPrice { get; set; }
+    public string? Unit { get; set; } // وحدة البيع بالفاتورة
+    public decimal ConversionFactor { get; set; } = 1; // معامل التحويل للوحدة الأساسية
+    public decimal Quantity { get; set; } // الكمية بوحدة البيع
+    public decimal UnitPrice { get; set; } // سعر الوحدة المباعة
     public decimal UnitCost { get; set; } // التكلفة وقت البيع لحساب الربح
     public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }
     public decimal DeliveredQuantity { get; set; } = 0;
     public decimal RemainingQuantity => Quantity - DeliveredQuantity;
+    public decimal BaseQuantity => Quantity * (ConversionFactor > 0 ? ConversionFactor : 1);
 }

@@ -6,6 +6,7 @@ namespace Elfat7.Api.Controllers;
 
 [ApiController]
 [Route("api/goods-receipts")]
+[Obsolete("Deprecated in favor of direct warehouse incoming stock addition")]
 public class GoodsReceiptsController : ControllerBase
 {
     private readonly IGoodsReceiptService _receiptService;

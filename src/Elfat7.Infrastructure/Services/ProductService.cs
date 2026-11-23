@@ -17,7 +17,11 @@ public class ProductService : IProductService
 
     public async Task<PagedResult<ProductDto>> GetProductsAsync(ProductFilterDto filter, CancellationToken ct = default)
     {
-        var query = _context.Products.AsNoTracking().Include(p => p.Category).Include(p => p.WarehouseStocks).AsQueryable();
+        var query = _context.Products.AsNoTracking()
+            .Include(p => p.Category)
+            .Include(p => p.WarehouseStocks)
+            .Include(p => p.SellingUnits)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
         {
@@ -49,7 +53,16 @@ public class ProductService : IProductService
                 AverageCost = p.AverageCost,
                 TotalStockQuantity = p.WarehouseStocks.Sum(ws => ws.Quantity),
                 Description = p.Description,
-                IsActive = p.IsActive
+                IsActive = p.IsActive,
+                SellingUnits = p.SellingUnits.Select(u => new ProductSellingUnitDto
+                {
+                    Id = u.Id,
+                    UnitName = u.UnitName,
+                    ConversionFactor = u.ConversionFactor,
+                    SellingPrice = u.SellingPrice,
+                    PurchasePrice = u.PurchasePrice,
+                    IsDefault = u.IsDefault
+                }).ToList()
             })
             .ToListAsync(ct);
 
@@ -58,7 +71,11 @@ public class ProductService : IProductService
 
     public async Task<List<ProductDto>> GetAllFilteredProductsAsync(ProductFilterDto filter, CancellationToken ct = default)
     {
-        var query = _context.Products.AsNoTracking().Include(p => p.Category).Include(p => p.WarehouseStocks).AsQueryable();
+        var query = _context.Products.AsNoTracking()
+            .Include(p => p.Category)
+            .Include(p => p.WarehouseStocks)
+            .Include(p => p.SellingUnits)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
         {
@@ -86,7 +103,16 @@ public class ProductService : IProductService
                 AverageCost = p.AverageCost,
                 TotalStockQuantity = p.WarehouseStocks.Sum(ws => ws.Quantity),
                 Description = p.Description,
-                IsActive = p.IsActive
+                IsActive = p.IsActive,
+                SellingUnits = p.SellingUnits.Select(u => new ProductSellingUnitDto
+                {
+                    Id = u.Id,
+                    UnitName = u.UnitName,
+                    ConversionFactor = u.ConversionFactor,
+                    SellingPrice = u.SellingPrice,
+                    PurchasePrice = u.PurchasePrice,
+                    IsDefault = u.IsDefault
+                }).ToList()
             })
             .ToListAsync(ct);
     }
@@ -98,6 +124,7 @@ public class ProductService : IProductService
             .Include(p => p.Category)
             .Include(p => p.WarehouseStocks)
             .ThenInclude(ws => ws.Warehouse)
+            .Include(p => p.SellingUnits)
             .FirstOrDefaultAsync(p => p.Code == code, ct);
 
         if (product == null) return null;
@@ -115,6 +142,15 @@ public class ProductService : IProductService
             TotalStockQuantity = product.WarehouseStocks.Sum(ws => ws.Quantity),
             Description = product.Description,
             IsActive = product.IsActive,
+            SellingUnits = product.SellingUnits.Select(u => new ProductSellingUnitDto
+            {
+                Id = u.Id,
+                UnitName = u.UnitName,
+                ConversionFactor = u.ConversionFactor,
+                SellingPrice = u.SellingPrice,
+                PurchasePrice = u.PurchasePrice,
+                IsDefault = u.IsDefault
+            }).ToList(),
             WarehouseStocks = product.WarehouseStocks.Select(ws => new ProductWarehouseStockDto
             {
                 WarehouseCode = ws.Warehouse?.Code ?? "",
@@ -128,9 +164,11 @@ public class ProductService : IProductService
 
     public async Task<Result<ProductDto>> CreateProductAsync(CreateProductDto dto, CancellationToken ct = default)
     {
-        var category = await _context.ProductCategories.FirstOrDefaultAsync(c => c.Code == dto.CategoryCode, ct);
-        if (category == null)
-            return Result<ProductDto>.Failure("تصنيف الأصناف المحدد غير موجود");
+        ProductCategory? category = null;
+        if (!string.IsNullOrWhiteSpace(dto.CategoryCode))
+        {
+            category = await _context.ProductCategories.FirstOrDefaultAsync(c => c.Code == dto.CategoryCode, ct);
+        }
 
         var count = await _context.Products.CountAsync(ct);
         var code = $"PRD-{(count + 1):D4}";
@@ -139,7 +177,7 @@ public class ProductService : IProductService
         {
             Code = code,
             Name = dto.Name.Trim(),
-            CategoryId = category.Id,
+            CategoryId = category?.Id,
             Unit = dto.Unit.Trim(),
             DefaultPurchasePrice = dto.DefaultPurchasePrice,
             DefaultSellingPrice = dto.DefaultSellingPrice,
@@ -148,6 +186,37 @@ public class ProductService : IProductService
             IsActive = true
         };
 
+        if (dto.SellingUnits != null && dto.SellingUnits.Any())
+        {
+            foreach (var u in dto.SellingUnits)
+            {
+                if (!string.IsNullOrWhiteSpace(u.UnitName))
+                {
+                    product.SellingUnits.Add(new ProductSellingUnit
+                    {
+                        UnitName = u.UnitName.Trim(),
+                        ConversionFactor = u.ConversionFactor > 0 ? u.ConversionFactor : 1,
+                        SellingPrice = u.SellingPrice > 0 ? u.SellingPrice : dto.DefaultSellingPrice,
+                        PurchasePrice = u.PurchasePrice > 0 ? u.PurchasePrice : dto.DefaultPurchasePrice,
+                        IsDefault = u.IsDefault
+                    });
+                }
+            }
+        }
+
+        // Always ensure at least the base unit is present as a selling unit
+        if (!product.SellingUnits.Any(u => u.UnitName == product.Unit))
+        {
+            product.SellingUnits.Add(new ProductSellingUnit
+            {
+                UnitName = product.Unit,
+                ConversionFactor = 1,
+                SellingPrice = product.DefaultSellingPrice,
+                PurchasePrice = product.DefaultPurchasePrice,
+                IsDefault = !product.SellingUnits.Any(u => u.IsDefault)
+            });
+        }
+
         await _context.Products.AddAsync(product, ct);
         await _context.SaveChangesAsync(ct);
 
@@ -155,35 +224,85 @@ public class ProductService : IProductService
         {
             Code = product.Code,
             Name = product.Name,
-            CategoryCode = category.Code,
-            CategoryName = category.Name,
+            CategoryCode = category?.Code ?? "",
+            CategoryName = category?.Name ?? "",
             Unit = product.Unit,
             DefaultPurchasePrice = product.DefaultPurchasePrice,
             DefaultSellingPrice = product.DefaultSellingPrice,
             AverageCost = product.AverageCost,
             TotalStockQuantity = 0,
             Description = product.Description,
-            IsActive = product.IsActive
-        }, "تم إضافة الصنف بنجاح");
+            IsActive = product.IsActive,
+            SellingUnits = product.SellingUnits.Select(u => new ProductSellingUnitDto
+            {
+                Id = u.Id,
+                UnitName = u.UnitName,
+                ConversionFactor = u.ConversionFactor,
+                SellingPrice = u.SellingPrice,
+                PurchasePrice = u.PurchasePrice,
+                IsDefault = u.IsDefault
+            }).ToList()
+        }, "تم إضافة الصنف وتكويد وحدات البيع بنجاح");
     }
 
     public async Task<Result<ProductDto>> UpdateProductAsync(string code, UpdateProductDto dto, CancellationToken ct = default)
     {
-        var product = await _context.Products.Include(p => p.Category).FirstOrDefaultAsync(p => p.Code == code, ct);
+        var product = await _context.Products
+            .Include(p => p.Category)
+            .Include(p => p.SellingUnits)
+            .FirstOrDefaultAsync(p => p.Code == code, ct);
+
         if (product == null)
             return Result<ProductDto>.Failure("الصنف المطلوب غير موجود");
 
-        var category = await _context.ProductCategories.FirstOrDefaultAsync(c => c.Code == dto.CategoryCode, ct);
-        if (category == null)
-            return Result<ProductDto>.Failure("تصنيف الأصناف المحدد غير موجود");
+        ProductCategory? category = null;
+        if (!string.IsNullOrWhiteSpace(dto.CategoryCode))
+        {
+            category = await _context.ProductCategories.FirstOrDefaultAsync(c => c.Code == dto.CategoryCode, ct);
+        }
 
         product.Name = dto.Name.Trim();
-        product.CategoryId = category.Id;
+        product.CategoryId = category?.Id ?? product.CategoryId;
         product.Unit = dto.Unit.Trim();
         product.DefaultPurchasePrice = dto.DefaultPurchasePrice;
         product.DefaultSellingPrice = dto.DefaultSellingPrice;
         product.Description = dto.Description?.Trim();
         product.IsActive = dto.IsActive;
+
+        if (dto.SellingUnits != null)
+        {
+            _context.ProductSellingUnits.RemoveRange(product.SellingUnits);
+            product.SellingUnits.Clear();
+
+            foreach (var u in dto.SellingUnits)
+            {
+                if (!string.IsNullOrWhiteSpace(u.UnitName))
+                {
+                    product.SellingUnits.Add(new ProductSellingUnit
+                    {
+                        ProductId = product.Id,
+                        UnitName = u.UnitName.Trim(),
+                        ConversionFactor = u.ConversionFactor > 0 ? u.ConversionFactor : 1,
+                        SellingPrice = u.SellingPrice > 0 ? u.SellingPrice : dto.DefaultSellingPrice,
+                        PurchasePrice = u.PurchasePrice > 0 ? u.PurchasePrice : dto.DefaultPurchasePrice,
+                        IsDefault = u.IsDefault
+                    });
+                }
+            }
+
+            if (!product.SellingUnits.Any(u => u.UnitName == product.Unit))
+            {
+                product.SellingUnits.Add(new ProductSellingUnit
+                {
+                    ProductId = product.Id,
+                    UnitName = product.Unit,
+                    ConversionFactor = 1,
+                    SellingPrice = product.DefaultSellingPrice,
+                    PurchasePrice = product.DefaultPurchasePrice,
+                    IsDefault = !product.SellingUnits.Any(u => u.IsDefault)
+                });
+            }
+        }
 
         await _context.SaveChangesAsync(ct);
 
@@ -191,15 +310,24 @@ public class ProductService : IProductService
         {
             Code = product.Code,
             Name = product.Name,
-            CategoryCode = category.Code,
-            CategoryName = category.Name,
+            CategoryCode = category?.Code ?? product.Category?.Code ?? "",
+            CategoryName = category?.Name ?? product.Category?.Name ?? "",
             Unit = product.Unit,
             DefaultPurchasePrice = product.DefaultPurchasePrice,
             DefaultSellingPrice = product.DefaultSellingPrice,
             AverageCost = product.AverageCost,
             Description = product.Description,
-            IsActive = product.IsActive
-        }, "تم تحديث بيانات الصنف بنجاح");
+            IsActive = product.IsActive,
+            SellingUnits = product.SellingUnits.Select(u => new ProductSellingUnitDto
+            {
+                Id = u.Id,
+                UnitName = u.UnitName,
+                ConversionFactor = u.ConversionFactor,
+                SellingPrice = u.SellingPrice,
+                PurchasePrice = u.PurchasePrice,
+                IsDefault = u.IsDefault
+            }).ToList()
+        }, "تم تحديث بيانات الصنف ووحدات البيع بنجاح");
     }
 
     public async Task<Result> DeleteProductAsync(string code, CancellationToken ct = default)

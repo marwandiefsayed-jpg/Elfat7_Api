@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Elfat7.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b43d025a690506705d2e6a35db36a6b2d67e9adc")]
 [assembly: System.Reflection.AssemblyProductAttribute("Elfat7.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Elfat7.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

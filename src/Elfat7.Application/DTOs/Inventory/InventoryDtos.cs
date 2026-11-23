@@ -133,3 +133,37 @@ public class CreateStockAdjustmentItemDto
     public decimal Quantity { get; set; }
     public string? Reason { get; set; }
 }
+
+public class UpdateStockQuantityDto
+{
+    public string WarehouseCode { get; set; } = string.Empty;
+    public string ProductCode { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public decimal? ConversionFactor { get; set; }
+    public decimal Quantity { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class AddIncomingStockDto
+{
+    public string WarehouseCode { get; set; } = string.Empty;
+    public string ProductCode { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public decimal? ConversionFactor { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal? UnitCost { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class WarehouseStockDto
+{
+    public string WarehouseCode { get; set; } = string.Empty;
+    public string WarehouseName { get; set; } = string.Empty;
+    public string ProductCode { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string Unit { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal ReservedQuantity { get; set; }
+    public decimal AvailableQuantity { get; set; }
+    public decimal AverageCost { get; set; }
+}

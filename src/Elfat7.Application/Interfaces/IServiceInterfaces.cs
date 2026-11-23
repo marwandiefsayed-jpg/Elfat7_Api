@@ -62,6 +62,8 @@ public interface IInventoryService
     Task<Result<StockTransferDto>> CreateStockTransferAsync(CreateStockTransferDto dto, CancellationToken ct = default);
     Task<PagedResult<StockAdjustmentDto>> GetStockAdjustmentsAsync(PagedFilterRequest filter, CancellationToken ct = default);
     Task<Result<StockAdjustmentDto>> CreateStockAdjustmentAsync(CreateStockAdjustmentDto dto, CancellationToken ct = default);
+    Task<Result<WarehouseStockDto>> UpdateStockQuantityAsync(UpdateStockQuantityDto dto, CancellationToken ct = default);
+    Task<Result<WarehouseStockDto>> AddIncomingStockAsync(AddIncomingStockDto dto, CancellationToken ct = default);
 }
 
 public interface ICustomerService

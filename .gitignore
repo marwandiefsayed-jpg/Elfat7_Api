@@ -1,0 +1,62 @@
+# Build outputs and artifacts
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]inlog/
+*.binlog
+artifacts/
+
+# Visual Studio & IDE files
+.vs/
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# NuGet & publishing
+*.nupkg
+*.snupkg
+*.Publish.xml
+*.pubxml
+publish/
+
+# Test results & coverage
+TestResults/
+[Tt]est[Rr]esult*/
+[Bb]ug[Ss]lice*
+coverage/
+*.coverage
+*.coveragexml
+
+# Secrets, local config & databases
+.env
+.env.*
+!.env.example
+secrets.json
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -96,7 +96,9 @@ public class SalesInvoiceItemDto
     public string ProductCode { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string Unit { get; set; } = string.Empty;
+    public decimal ConversionFactor { get; set; } = 1;
     public decimal Quantity { get; set; }
+    public decimal BaseQuantity => Quantity * (ConversionFactor > 0 ? ConversionFactor : 1);
     public decimal UnitPrice { get; set; }
     public string UnitPriceFormatted => ArabicLocalizationHelper.FormatCurrency(UnitPrice);
     public decimal UnitCost { get; set; }
@@ -138,6 +140,8 @@ public class CreateSalesInvoiceDto
 public class CreateSalesInvoiceItemDto
 {
     public string ProductCode { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public decimal? ConversionFactor { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal DiscountAmount { get; set; }

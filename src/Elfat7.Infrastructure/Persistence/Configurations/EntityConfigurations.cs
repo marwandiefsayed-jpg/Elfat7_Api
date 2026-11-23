@@ -8,6 +8,7 @@ public class EntityConfigurations :
     IEntityTypeConfiguration<Supplier>,
     IEntityTypeConfiguration<ProductCategory>,
     IEntityTypeConfiguration<Product>,
+    IEntityTypeConfiguration<ProductSellingUnit>,
     IEntityTypeConfiguration<Warehouse>,
     IEntityTypeConfiguration<WarehouseStock>,
     IEntityTypeConfiguration<StockMovement>,
@@ -58,6 +59,7 @@ public class EntityConfigurations :
         builder.HasOne(x => x.Category)
             .WithMany(x => x.Products)
             .HasForeignKey(x => x.CategoryId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
     }
 
@@ -376,6 +378,38 @@ public class EntityConfigurations :
         builder.HasOne(x => x.Treasury)
             .WithMany()
             .HasForeignKey(x => x.TreasuryId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    public void Configure(EntityTypeBuilder<ProductSellingUnit> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.UnitName).HasMaxLength(50).IsRequired();
+        builder.Property(x => x.ConversionFactor).HasPrecision(18, 4);
+        builder.Property(x => x.SellingPrice).HasPrecision(18, 2);
+        builder.Property(x => x.PurchasePrice).HasPrecision(18, 2);
+
+        builder.HasOne(x => x.Product)
+            .WithMany(p => p.SellingUnits)
+            .HasForeignKey(x => x.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    public void Configure(EntityTypeBuilder<SalesInvoiceItem> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Unit).HasMaxLength(50);
+        builder.Property(x => x.ConversionFactor).HasPrecision(18, 4);
+        builder.Property(x => x.Quantity).HasPrecision(18, 3);
+        builder.Property(x => x.UnitPrice).HasPrecision(18, 2);
+        builder.Property(x => x.UnitCost).HasPrecision(18, 2);
+        builder.Property(x => x.DiscountAmount).HasPrecision(18, 2);
+        builder.Property(x => x.LineTotal).HasPrecision(18, 2);
+        builder.Property(x => x.DeliveredQuantity).HasPrecision(18, 3);
+
+        builder.HasOne(x => x.Product)
+            .WithMany()
+            .HasForeignKey(x => x.ProductId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
