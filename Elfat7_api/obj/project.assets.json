@@ -4723,11 +4723,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\Elfat7_api\\Elfat7_api.csproj",
+      "projectUniqueName": "C:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\Elfat7_api\\Elfat7_api.csproj",
       "projectName": "Elfat7_api",
-      "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\Elfat7_api\\Elfat7_api.csproj",
+      "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\Elfat7_api\\Elfat7_api.csproj",
       "packagesPath": "C:\\Users\\marwa\\.nuget\\packages\\",
-      "outputPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\Elfat7_api\\obj\\",
+      "outputPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\Elfat7_api\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -4750,11 +4750,11 @@
           "framework": "net8.0",
           "targetAlias": "net8.0",
           "projectReferences": {
-            "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj": {
-              "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj"
+            "C:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj": {
+              "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Application\\Elfat7.Application.csproj"
             },
-            "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj": {
-              "projectPath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj"
+            "C:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj": {
+              "projectPath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\src\\Elfat7.Infrastructure\\Elfat7.Infrastructure.csproj"
             }
           }
         }

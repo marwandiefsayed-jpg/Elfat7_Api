@@ -243,6 +243,11 @@ public class EntityConfigurations :
             .HasForeignKey(x => x.CustomerId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(x => x.Warehouse)
+            .WithMany()
+            .HasForeignKey(x => x.WarehouseId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(x => x.SalesOrder)
             .WithMany(x => x.SalesInvoices)
             .HasForeignKey(x => x.SalesOrderId)

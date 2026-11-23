@@ -345,7 +345,6 @@ public class PdfReportService : IPdfReportService
                             columns.RelativeColumn(2);
                             columns.RelativeColumn(2);
                             columns.RelativeColumn(2);
-                            columns.RelativeColumn(2);
                         });
 
                         table.Header(header =>
@@ -356,7 +355,6 @@ public class PdfReportService : IPdfReportService
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("الوحدة").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("الرصيد الفعلي").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("المتاح للصرف").Bold();
-                            header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("متوسط التكلفة").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("قيمة المخزون").Bold();
                         });
 
@@ -368,7 +366,6 @@ public class PdfReportService : IPdfReportService
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(item.Unit);
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(ArabicLocalizationHelper.FormatQuantity(item.TotalQuantity));
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(ArabicLocalizationHelper.FormatQuantity(item.TotalAvailableQuantity));
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(ArabicLocalizationHelper.FormatCurrency(item.AverageCost));
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(item.TotalValuationFormatted).Bold();
                         }
                     });

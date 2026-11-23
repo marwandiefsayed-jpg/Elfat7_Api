@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "ZI74girFvOk=",
+  "dgSpecHash": "xG2e7SlXmWc=",
   "success": true,
-  "projectFilePath": "c:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\Elfat7_api\\Elfat7_api.csproj",
+  "projectFilePath": "C:\\Users\\marwa\\source\\repos\\Elfat7_api_company\\Elfat7_api\\Elfat7_api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\marwa\\.nuget\\packages\\azure.core\\1.35.0\\azure.core.1.35.0.nupkg.sha512",
     "C:\\Users\\marwa\\.nuget\\packages\\azure.identity\\1.10.3\\azure.identity.1.10.3.nupkg.sha512",

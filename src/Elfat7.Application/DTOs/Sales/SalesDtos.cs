@@ -65,6 +65,8 @@ public class SalesInvoiceDto
     public string InvoiceNumber { get; set; } = string.Empty;
     public string CustomerCode { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
+    public string WarehouseCode { get; set; } = string.Empty;
+    public string WarehouseName { get; set; } = string.Empty;
     public string? SalesOrderNumber { get; set; }
     public DateTime InvoiceDate { get; set; }
     public string InvoiceDateFormatted => ArabicLocalizationHelper.FormatDate(InvoiceDate);
@@ -128,10 +130,12 @@ public class SalesReturnSummaryDto
 public class CreateSalesInvoiceDto
 {
     public string CustomerCode { get; set; } = string.Empty;
+    public string? WarehouseCode { get; set; }
     public string? SalesOrderNumber { get; set; }
     public DateTime? InvoiceDate { get; set; }
     public DateTime? DueDate { get; set; }
     public decimal DiscountAmount { get; set; }
+    public decimal PaidAmount { get; set; }
     public string? Notes { get; set; }
     public bool AutoConfirm { get; set; } = false;
     public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();

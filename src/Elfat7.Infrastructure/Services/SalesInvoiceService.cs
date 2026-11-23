@@ -21,6 +21,7 @@ public class SalesInvoiceService : ISalesInvoiceService
         var query = _context.SalesInvoices
             .AsNoTracking()
             .Include(si => si.Customer)
+            .Include(si => si.Warehouse)
             .Include(si => si.SalesOrder)
             .Include(si => si.Items)
             .AsQueryable();
@@ -57,6 +58,8 @@ public class SalesInvoiceService : ISalesInvoiceService
                 InvoiceNumber = si.InvoiceNumber,
                 CustomerCode = si.Customer != null ? si.Customer.Code : "",
                 CustomerName = si.Customer != null ? si.Customer.Name : "",
+                WarehouseCode = si.Warehouse != null ? si.Warehouse.Code : "",
+                WarehouseName = si.Warehouse != null ? si.Warehouse.Name : "",
                 SalesOrderNumber = si.SalesOrder != null ? si.SalesOrder.OrderNumber : null,
                 InvoiceDate = si.InvoiceDate,
                 DueDate = si.DueDate,
@@ -78,6 +81,7 @@ public class SalesInvoiceService : ISalesInvoiceService
         var query = _context.SalesInvoices
             .AsNoTracking()
             .Include(si => si.Customer)
+            .Include(si => si.Warehouse)
             .Include(si => si.SalesOrder)
             .Include(si => si.Items)
             .AsQueryable();
@@ -110,6 +114,8 @@ public class SalesInvoiceService : ISalesInvoiceService
                 InvoiceNumber = si.InvoiceNumber,
                 CustomerCode = si.Customer != null ? si.Customer.Code : "",
                 CustomerName = si.Customer != null ? si.Customer.Name : "",
+                WarehouseCode = si.Warehouse != null ? si.Warehouse.Code : "",
+                WarehouseName = si.Warehouse != null ? si.Warehouse.Name : "",
                 SalesOrderNumber = si.SalesOrder != null ? si.SalesOrder.OrderNumber : null,
                 InvoiceDate = si.InvoiceDate,
                 DueDate = si.DueDate,
@@ -129,6 +135,7 @@ public class SalesInvoiceService : ISalesInvoiceService
         var inv = await _context.SalesInvoices
             .AsNoTracking()
             .Include(s => s.Customer)
+            .Include(s => s.Warehouse)
             .Include(s => s.SalesOrder)
             .Include(s => s.Items)
             .ThenInclude(i => i.Product)
@@ -144,6 +151,8 @@ public class SalesInvoiceService : ISalesInvoiceService
             InvoiceNumber = inv.InvoiceNumber,
             CustomerCode = inv.Customer?.Code ?? "",
             CustomerName = inv.Customer?.Name ?? "",
+            WarehouseCode = inv.Warehouse?.Code ?? "",
+            WarehouseName = inv.Warehouse?.Name ?? "",
             SalesOrderNumber = inv.SalesOrder?.OrderNumber,
             InvoiceDate = inv.InvoiceDate,
             DueDate = inv.DueDate,
@@ -192,6 +201,19 @@ public class SalesInvoiceService : ISalesInvoiceService
         var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Code == dto.CustomerCode, ct);
         if (customer == null) return Result<SalesInvoiceDto>.Failure("العميل المحدد غير موجود");
 
+        Warehouse? warehouse = null;
+        if (!string.IsNullOrWhiteSpace(dto.WarehouseCode))
+        {
+            warehouse = await _context.Warehouses.FirstOrDefaultAsync(w => w.Code == dto.WarehouseCode, ct);
+            if (warehouse == null) return Result<SalesInvoiceDto>.Failure("مستودع الصرف المحدد غير موجود");
+        }
+        else
+        {
+            warehouse = await _context.Warehouses.FirstOrDefaultAsync(w => w.IsActive, ct);
+        }
+
+        var shouldDeductStock = dto.AutoConfirm && warehouse != null;
+
         SalesOrder? salesOrder = null;
         if (!string.IsNullOrWhiteSpace(dto.SalesOrderNumber))
         {
@@ -204,10 +226,15 @@ public class SalesInvoiceService : ISalesInvoiceService
 
         decimal subTotal = 0;
         var items = new List<SalesInvoiceItem>();
+        var stockMovements = new List<StockMovement>();
+
+        var movCount = await _context.StockMovements.CountAsync(ct);
 
         foreach (var item in dto.Items)
         {
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.Code == item.ProductCode, ct);
+            var product = await _context.Products
+                .Include(p => p.WarehouseStocks)
+                .FirstOrDefaultAsync(p => p.Code == item.ProductCode, ct);
             if (product == null) return Result<SalesInvoiceDto>.Failure($"الصنف {item.ProductCode} غير موجود");
 
             var lineTotal = (item.Quantity * item.UnitPrice) - item.DiscountAmount;
@@ -215,6 +242,40 @@ public class SalesInvoiceService : ISalesInvoiceService
 
             var itemUnit = !string.IsNullOrWhiteSpace(item.Unit) ? item.Unit.Trim() : product.Unit;
             var convFactor = item.ConversionFactor.HasValue && item.ConversionFactor.Value > 0 ? item.ConversionFactor.Value : 1;
+            var baseDeductQty = item.Quantity * convFactor;
+
+            if (shouldDeductStock && warehouse != null)
+            {
+                // التحقق من توافر الرصيد الفعلي في المستودع المحدد
+                var stock = await _context.WarehouseStocks
+                    .FirstOrDefaultAsync(ws => ws.WarehouseId == warehouse.Id && ws.ProductId == product.Id, ct);
+
+                if (stock == null || stock.AvailableQuantity < baseDeductQty)
+                {
+                    var available = stock?.AvailableQuantity ?? 0;
+                    return Result<SalesInvoiceDto>.Failure(
+                        $"الرصيد المتاح من صنف ({product.Name}) في مستودع ({warehouse.Name}) غير كافٍ. " +
+                        $"المتاح حالياً: {available} {product.Unit} فقط، والمطلوب صرفه: {item.Quantity} {itemUnit} (= {baseDeductQty} {product.Unit})");
+                }
+
+                // خصم الكمية من رصيد المستودع بالوحدة الأساسية
+                stock.Quantity -= baseDeductQty;
+                stock.LastUpdated = DateTime.UtcNow;
+
+                // تسجيل حركة المخزن بالسالب (صرف مبيعات)
+                stockMovements.Add(new StockMovement
+                {
+                    MovementNumber = $"MOV-{DateTime.UtcNow.Year}-{(movCount + stockMovements.Count + 1):D5}",
+                    WarehouseId = warehouse.Id,
+                    ProductId = product.Id,
+                    MovementType = StockMovementType.SalesDelivery,
+                    Quantity = -baseDeductQty,
+                    UnitCost = product.AverageCost,
+                    TotalCost = baseDeductQty * product.AverageCost,
+                    ReferenceNumber = invoiceNumber,
+                    Notes = $"صرف مبيعات بموجب فاتورة رقم {invoiceNumber} للعميل {customer.Name} ({item.Quantity} {itemUnit})"
+                });
+            }
 
             items.Add(new SalesInvoiceItem
             {
@@ -223,15 +284,23 @@ public class SalesInvoiceService : ISalesInvoiceService
                 ConversionFactor = convFactor,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
-                UnitCost = product.AverageCost * convFactor, // تسجيل متوسط التكلفة وقت البيع معدل بوحدة البيع
+                UnitCost = product.AverageCost * convFactor,
                 DiscountAmount = item.DiscountAmount,
                 LineTotal = lineTotal > 0 ? lineTotal : 0,
-                DeliveredQuantity = 0
+                DeliveredQuantity = shouldDeductStock ? item.Quantity : 0
             });
         }
 
         var totalAmount = subTotal - dto.DiscountAmount;
         if (totalAmount < 0) totalAmount = 0;
+
+        var paidAmount = dto.PaidAmount > 0 ? dto.PaidAmount : 0;
+        var remaining = totalAmount - paidAmount;
+        var paymentStatus = remaining <= 0
+            ? InvoicePaymentStatus.FullyPaid
+            : paidAmount > 0
+                ? InvoicePaymentStatus.PartiallyPaid
+                : InvoicePaymentStatus.Unpaid;
 
         var status = dto.AutoConfirm ? SalesInvoiceStatus.Confirmed : SalesInvoiceStatus.Draft;
 
@@ -239,26 +308,32 @@ public class SalesInvoiceService : ISalesInvoiceService
         {
             InvoiceNumber = invoiceNumber,
             CustomerId = customer.Id,
+            WarehouseId = warehouse?.Id,
             SalesOrderId = salesOrder?.Id,
             InvoiceDate = dto.InvoiceDate ?? DateTime.UtcNow,
             DueDate = dto.DueDate,
             Status = status,
-            PaymentStatus = InvoicePaymentStatus.Unpaid,
+            PaymentStatus = dto.AutoConfirm ? paymentStatus : InvoicePaymentStatus.Unpaid,
             SubTotal = subTotal,
             DiscountAmount = dto.DiscountAmount,
             TotalAmount = totalAmount,
-            PaidAmount = 0,
+            PaidAmount = dto.AutoConfirm ? paidAmount : 0,
             Notes = dto.Notes?.Trim(),
             Items = items
         };
 
-        // إذا تم تأكيد الفاتورة مباشرة، يتم تسجيل المديونية على رصيد العميل
-        if (dto.AutoConfirm)
+        // تسجيل المديونية الصافية المتبقية على رصيد العميل إذا كانت الفاتورة مؤكدة
+        if (dto.AutoConfirm && remaining > 0)
         {
-            customer.Balance += totalAmount;
+            customer.Balance += remaining;
         }
 
         await _context.SalesInvoices.AddAsync(invoice, ct);
+        if (stockMovements.Count > 0)
+        {
+            await _context.StockMovements.AddRangeAsync(stockMovements, ct);
+        }
+
         await _context.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
@@ -267,6 +342,8 @@ public class SalesInvoiceService : ISalesInvoiceService
             InvoiceNumber = invoice.InvoiceNumber,
             CustomerCode = customer.Code,
             CustomerName = customer.Name,
+            WarehouseCode = warehouse?.Code ?? "",
+            WarehouseName = warehouse?.Name ?? "",
             SalesOrderNumber = salesOrder?.OrderNumber,
             InvoiceDate = invoice.InvoiceDate,
             DueDate = invoice.DueDate,
@@ -275,10 +352,9 @@ public class SalesInvoiceService : ISalesInvoiceService
             SubTotal = invoice.SubTotal,
             DiscountAmount = invoice.DiscountAmount,
             TotalAmount = invoice.TotalAmount,
-            PaidAmount = 0,
+            PaidAmount = invoice.PaidAmount,
             ItemsCount = invoice.Items.Count
-        }, dto.AutoConfirm ? "تم إنشاء وتأكيد فاتورة المبيعات وتسجيل المديونية على حساب العميل بنجاح"
-                            : "تم إنشاء فاتورة المبيعات كمسودة بنجاح (دون التأثير على المخزون أو رصيد العميل)");
+        }, "تم إنشاء وتأكيد فاتورة المبيعات وخصم الكميات المباعة من رصيد المستودع بنجاح");
     }
 
     public async Task<Result> ConfirmSalesInvoiceAsync(string invoiceNumber, CancellationToken ct = default)
@@ -294,10 +370,10 @@ public class SalesInvoiceService : ISalesInvoiceService
 
         invoice.Status = SalesInvoiceStatus.Confirmed;
 
-        // تسجيل المديونية على رصيد العميل
         if (invoice.Customer != null)
         {
-            invoice.Customer.Balance += invoice.TotalAmount;
+            var remaining = invoice.TotalAmount - invoice.PaidAmount;
+            if (remaining > 0) invoice.Customer.Balance += remaining;
         }
 
         await _context.SaveChangesAsync(ct);
@@ -313,20 +389,65 @@ public class SalesInvoiceService : ISalesInvoiceService
             .Include(i => i.Customer)
             .Include(i => i.Deliveries)
             .Include(i => i.Payments)
+            .Include(i => i.Items)
+            .ThenInclude(it => it.Product)
             .FirstOrDefaultAsync(i => i.InvoiceNumber == invoiceNumber, ct);
 
         if (invoice == null) return Result.Failure("فاتورة المبيعات غير موجودة");
 
         if (invoice.Deliveries.Any(d => d.Status != DeliveryStatus.Cancelled))
-            return Result.Failure("لا يمكن إلغاء فاتورة تم صرف أذون تسليم مرتبطة بها للمخزن");
+            return Result.Failure("لا يمكن إلغاء فاتورة تم صرف أذون تسليم منفصلة مرتبطة بها للمخزن");
 
         if (invoice.Payments.Any())
             return Result.Failure("لا يمكن إلغاء فاتورة تم تسجيل دفعات سداد نقدية عليها");
 
+        // استرجاع المخزون المخصوم إذا كانت الفاتورة مؤكدة
+        if (invoice.Status == SalesInvoiceStatus.Confirmed && invoice.WarehouseId.HasValue)
+        {
+            var movCount = await _context.StockMovements.CountAsync(ct);
+            var restockMovements = new List<StockMovement>();
+
+            foreach (var item in invoice.Items)
+            {
+                var convFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1;
+                var baseQty = item.Quantity * convFactor;
+
+                var stock = await _context.WarehouseStocks
+                    .FirstOrDefaultAsync(ws => ws.WarehouseId == invoice.WarehouseId.Value && ws.ProductId == item.ProductId, ct);
+                if (stock != null)
+                {
+                    stock.Quantity += baseQty;
+                    stock.LastUpdated = DateTime.UtcNow;
+                }
+
+                restockMovements.Add(new StockMovement
+                {
+                    MovementNumber = $"MOV-{DateTime.UtcNow.Year}-{(movCount + restockMovements.Count + 1):D5}",
+                    WarehouseId = invoice.WarehouseId.Value,
+                    ProductId = item.ProductId,
+                    MovementType = StockMovementType.SalesReturn,
+                    Quantity = baseQty,
+                    UnitCost = item.UnitCost,
+                    TotalCost = baseQty * item.UnitCost,
+                    ReferenceNumber = invoice.InvoiceNumber,
+                    Notes = $"إلغاء فاتورة مبيعات رقم {invoice.InvoiceNumber} وإعادة بضاعة للمستودع"
+                });
+            }
+
+            if (restockMovements.Count > 0)
+            {
+                await _context.StockMovements.AddRangeAsync(restockMovements, ct);
+            }
+        }
+
         // إذا كانت الفاتورة مؤكدة وتم تسجيل قيمتها على العميل، نخصمها من رصيد العميل
         if (invoice.Status == SalesInvoiceStatus.Confirmed && invoice.Customer != null)
         {
-            invoice.Customer.Balance -= invoice.TotalAmount;
+            var remaining = invoice.TotalAmount - invoice.PaidAmount;
+            if (remaining > 0)
+            {
+                invoice.Customer.Balance -= remaining;
+            }
         }
 
         invoice.Status = SalesInvoiceStatus.Cancelled;
@@ -334,6 +455,6 @@ public class SalesInvoiceService : ISalesInvoiceService
         await _context.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
-        return Result.Success("تم إلغاء فاتورة المبيعات بنجاح وتعديل رصيد العميل");
+        return Result.Success("تم إلغاء فاتورة المبيعات بنجاح واسترجاع البضاعة لرصيد المستودع وتعديل رصيد العميل");
     }
 }

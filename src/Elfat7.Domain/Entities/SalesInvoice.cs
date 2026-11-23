@@ -8,6 +8,8 @@ public class SalesInvoice : BaseEntity
     public string InvoiceNumber { get; set; } = string.Empty;
     public int CustomerId { get; set; }
     public Customer? Customer { get; set; }
+    public int? WarehouseId { get; set; }
+    public Warehouse? Warehouse { get; set; }
     public int? SalesOrderId { get; set; }
     public SalesOrder? SalesOrder { get; set; }
     
