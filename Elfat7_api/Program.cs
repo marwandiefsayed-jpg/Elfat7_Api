@@ -53,6 +53,35 @@ using (var scope = app.Services.CreateScope())
         logger.LogInformation("التحقق من إنشاء قاعدة البيانات وجداول النظام...");
         await db.Database.EnsureCreatedAsync();
         logger.LogInformation("تم التأكد من وجود قاعدة البيانات والجداول (البيانات الأولية معطلة).");
+
+        // ضمان قابلية القيمة الفارغة لحقل الخزينة في جدول CustomerPayments
+        try
+        {
+            await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.ExecuteSqlRawAsync(db.Database, @"
+                IF EXISTS (
+                    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_NAME = 'CustomerPayments' 
+                      AND COLUMN_NAME = 'TreasuryId' 
+                      AND IS_NULLABLE = 'NO'
+                )
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CustomerPayments_Treasuries_TreasuryId')
+                        ALTER TABLE CustomerPayments DROP CONSTRAINT FK_CustomerPayments_Treasuries_TreasuryId;
+                    
+                    ALTER TABLE CustomerPayments ALTER COLUMN TreasuryId INT NULL;
+                    
+                    IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CustomerPayments_Treasuries_TreasuryId')
+                        ALTER TABLE CustomerPayments ADD CONSTRAINT FK_CustomerPayments_Treasuries_TreasuryId 
+                        FOREIGN KEY (TreasuryId) REFERENCES Treasuries(Id) ON DELETE SET NULL;
+                END
+            ");
+            logger.LogInformation("تم التأكد من دعم سداد المديونية دون إلزامية الخزينة في قاعدة البيانات.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "تنبيه أثناء التحقق من مخطط جدول سندات قبض العملاء: {Message}", ex.Message);
+        }
+
         // Seeding is disabled to keep the database empty:
         // await DatabaseSeeder.SeedAsync(db);
     }

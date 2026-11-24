@@ -448,69 +448,156 @@ public class FinancialService : IFinancialService
 
     public async Task<Result<CustomerPaymentDto>> CreateCustomerPaymentAsync(CreateCustomerPaymentDto dto, CancellationToken ct = default)
     {
+        if (dto.Amount <= 0)
+            return Result<CustomerPaymentDto>.Failure("مبلغ السداد يجب أن يكون أكبر من الصفر");
+
         using var transaction = await _context.BeginTransactionAsync(ct);
 
         var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Code == dto.CustomerCode, ct);
         if (customer == null) return Result<CustomerPaymentDto>.Failure("العميل المحدد غير موجود");
 
-        var treasury = await _context.Treasuries.FirstOrDefaultAsync(t => t.Code == dto.TreasuryCode, ct);
-        if (treasury == null) return Result<CustomerPaymentDto>.Failure("الخزينة المحددة غير موجودة");
+        Treasury? treasury = null;
+        if (!string.IsNullOrWhiteSpace(dto.TreasuryCode))
+        {
+            treasury = await _context.Treasuries.FirstOrDefaultAsync(t => t.Code == dto.TreasuryCode, ct);
+        }
+        else
+        {
+            treasury = await _context.Treasuries.FirstOrDefaultAsync(t => t.IsActive, ct);
+        }
+
+        // حساب المديونية الفعلية الحالية على العميل
+        var currentDebt = await _context.SalesInvoices
+            .Where(si => si.CustomerId == customer.Id && si.Status != SalesInvoiceStatus.Cancelled && si.Status != SalesInvoiceStatus.Draft)
+            .SumAsync(si => (decimal?)(si.TotalAmount - si.PaidAmount), ct) ?? 0;
+
+        var actualDebt = currentDebt > 0 ? currentDebt : customer.Balance;
+        if (actualDebt <= 0)
+        {
+            return Result<CustomerPaymentDto>.Failure("لا توجد مديونية مستحقة على هذا العميل حالياً");
+        }
+
+        if (dto.Amount > actualDebt)
+        {
+            return Result<CustomerPaymentDto>.Failure($"مبلغ السداد ({ArabicLocalizationHelper.FormatCurrency(dto.Amount)}) أكبر من إجمالي المديونية المستحقة على العميل ({ArabicLocalizationHelper.FormatCurrency(actualDebt)})");
+        }
 
         SalesInvoice? invoice = null;
+        SalesInvoice? primaryInvoice = null;
+
         if (!string.IsNullOrWhiteSpace(dto.SalesInvoiceNumber))
         {
             invoice = await _context.SalesInvoices.FirstOrDefaultAsync(i => i.InvoiceNumber == dto.SalesInvoiceNumber, ct);
             if (invoice == null) return Result<CustomerPaymentDto>.Failure("فاتورة المبيعات المحددة غير موجودة");
-        }
 
-        var count = await _context.CustomerPayments.CountAsync(ct);
-        var receiptNumber = $"CPAY-{DateTime.UtcNow.Year}-{(count + 1):D4}";
+            if (invoice.CustomerId != customer.Id)
+            {
+                return Result<CustomerPaymentDto>.Failure("فاتورة المبيعات المحددة لا تخص هذا العميل");
+            }
 
-        var payment = new CustomerPayment
-        {
-            ReceiptNumber = receiptNumber,
-            CustomerId = customer.Id,
-            TreasuryId = treasury.Id,
-            SalesInvoiceId = invoice?.Id,
-            Amount = dto.Amount,
-            PaymentDate = dto.PaymentDate ?? DateTime.UtcNow,
-            PaymentMethod = dto.PaymentMethod,
-            ReferenceNumber = dto.ReferenceNumber?.Trim(),
-            Notes = dto.Notes?.Trim()
-        };
+            var invoiceRemaining = Math.Max(0, invoice.TotalAmount - invoice.PaidAmount);
+            if (dto.Amount > invoiceRemaining)
+            {
+                return Result<CustomerPaymentDto>.Failure($"مبلغ السداد ({ArabicLocalizationHelper.FormatCurrency(dto.Amount)}) أكبر من المبلغ المتبقي على الفاتورة {invoice.InvoiceNumber} ({ArabicLocalizationHelper.FormatCurrency(invoiceRemaining)})");
+            }
 
-        // إضافة المبلغ إلى رصيد الخزينة
-        treasury.Balance += dto.Amount;
-
-        // تخفيض مديونية العميل
-        customer.Balance -= dto.Amount;
-
-        // إذا كان التحصيل مرتبطاً بفاتورة مبيعات، تحديث المسدد منها
-        if (invoice != null)
-        {
             invoice.PaidAmount += dto.Amount;
             if (invoice.PaidAmount >= invoice.TotalAmount)
                 invoice.PaymentStatus = InvoicePaymentStatus.FullyPaid;
             else if (invoice.PaidAmount > 0)
                 invoice.PaymentStatus = InvoicePaymentStatus.PartiallyPaid;
         }
-
-        // تسجيل حركة الخزينة
-        var trxCount = await _context.TreasuryTransactions.CountAsync(ct);
-        var trx = new TreasuryTransaction
+        else
         {
-            TransactionNumber = $"TRX-{DateTime.UtcNow.Year}-{(trxCount + 1):D5}",
-            TreasuryId = treasury.Id,
-            TransactionType = TreasuryTransactionType.Inflow,
-            Category = TreasuryTransactionCategory.CustomerPayment,
+            // سداد عام للمديونية: تخصيص المبلغ على أقدم الفواتير غير المسددة للعميل
+            var unpaidInvoices = await _context.SalesInvoices
+                .Where(i => i.CustomerId == customer.Id
+                         && i.Status != SalesInvoiceStatus.Cancelled
+                         && i.Status != SalesInvoiceStatus.Draft
+                         && i.TotalAmount > i.PaidAmount)
+                .OrderBy(i => i.InvoiceDate)
+                .ThenBy(i => i.Id)
+                .ToListAsync(ct);
+
+            decimal remainingToAllocate = dto.Amount;
+            foreach (var inv in unpaidInvoices)
+            {
+                if (remainingToAllocate <= 0) break;
+                primaryInvoice ??= inv;
+                decimal unpaidOnInvoice = inv.TotalAmount - inv.PaidAmount;
+                decimal allocate = Math.Min(unpaidOnInvoice, remainingToAllocate);
+                inv.PaidAmount += allocate;
+                remainingToAllocate -= allocate;
+
+                if (inv.PaidAmount >= inv.TotalAmount)
+                    inv.PaymentStatus = InvoicePaymentStatus.FullyPaid;
+                else if (inv.PaidAmount > 0)
+                    inv.PaymentStatus = InvoicePaymentStatus.PartiallyPaid;
+            }
+        }
+
+        var year = DateTime.UtcNow.Year;
+        var prefix = $"CPAY-{year}-";
+        var maxReceipt = await _context.CustomerPayments
+            .Where(p => p.ReceiptNumber.StartsWith(prefix))
+            .OrderByDescending(p => p.ReceiptNumber)
+            .Select(p => p.ReceiptNumber)
+            .FirstOrDefaultAsync(ct);
+
+        int nextSeq = 1;
+        if (!string.IsNullOrEmpty(maxReceipt) && maxReceipt.Length >= prefix.Length + 4 && int.TryParse(maxReceipt.Substring(prefix.Length), out var parsed))
+        {
+            nextSeq = parsed + 1;
+        }
+        else
+        {
+            var count = await _context.CustomerPayments.CountAsync(ct);
+            nextSeq = count + 1;
+        }
+        var receiptNumber = $"{prefix}{nextSeq:D4}";
+
+        var defaultNotes = !string.IsNullOrWhiteSpace(dto.Notes)
+            ? dto.Notes.Trim()
+            : $"تحصيل سداد مديونية من العميل: {customer.Name}" + (invoice != null ? $" - فاتورة {invoice.InvoiceNumber}" : primaryInvoice != null ? $" - تخصيص على فاتورة {primaryInvoice.InvoiceNumber}" : "");
+
+        var payment = new CustomerPayment
+        {
+            ReceiptNumber = receiptNumber,
+            CustomerId = customer.Id,
+            TreasuryId = treasury?.Id,
+            SalesInvoiceId = invoice?.Id ?? primaryInvoice?.Id,
             Amount = dto.Amount,
-            TransactionDate = payment.PaymentDate,
-            ReferenceNumber = receiptNumber,
-            Notes = $"تحصيل دفعة نقدية من العميل: {customer.Name}"
+            PaymentDate = dto.PaymentDate ?? DateTime.UtcNow,
+            PaymentMethod = dto.PaymentMethod,
+            ReferenceNumber = dto.ReferenceNumber?.Trim(),
+            Notes = defaultNotes
         };
 
+        if (treasury != null)
+        {
+            // إضافة المبلغ إلى رصيد الخزينة إذا توفرت
+            treasury.Balance += dto.Amount;
+
+            // تسجيل حركة الخزينة
+            var trxCount = await _context.TreasuryTransactions.CountAsync(ct);
+            var trx = new TreasuryTransaction
+            {
+                TransactionNumber = $"TRX-{DateTime.UtcNow.Year}-{(trxCount + 1):D5}",
+                TreasuryId = treasury.Id,
+                TransactionType = TreasuryTransactionType.Inflow,
+                Category = TreasuryTransactionCategory.CustomerPayment,
+                Amount = dto.Amount,
+                TransactionDate = payment.PaymentDate,
+                ReferenceNumber = receiptNumber,
+                Notes = $"تحصيل سداد مديونية من العميل: {customer.Name}" + (invoice != null ? $" - فاتورة {invoice.InvoiceNumber}" : primaryInvoice != null ? $" - تخصيص على فاتورة {primaryInvoice.InvoiceNumber}" : "")
+            };
+            await _context.TreasuryTransactions.AddAsync(trx, ct);
+        }
+
+        // تخفيض مديونية العميل دائماً
+        customer.Balance = Math.Max(0, customer.Balance - dto.Amount);
+
         await _context.CustomerPayments.AddAsync(payment, ct);
-        await _context.TreasuryTransactions.AddAsync(trx, ct);
 
         await _context.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -520,15 +607,17 @@ public class FinancialService : IFinancialService
             ReceiptNumber = payment.ReceiptNumber,
             CustomerCode = customer.Code,
             CustomerName = customer.Name,
-            TreasuryCode = treasury.Code,
-            TreasuryName = treasury.Name,
-            SalesInvoiceNumber = invoice?.InvoiceNumber,
+            TreasuryCode = treasury?.Code ?? "",
+            TreasuryName = treasury?.Name ?? "",
+            SalesInvoiceNumber = invoice?.InvoiceNumber ?? primaryInvoice?.InvoiceNumber,
             Amount = payment.Amount,
             PaymentDate = payment.PaymentDate,
             PaymentMethod = payment.PaymentMethod,
             ReferenceNumber = payment.ReferenceNumber,
             Notes = payment.Notes
-        }, "تم تسجيل سند القبض وإيداع المبلغ بالخزينة وتخفيض مديونية العميل بنجاح");
+        }, treasury != null 
+            ? "تم تسجيل سند القبض وإيداع المبلغ بالخزينة وتخفيض مديونية العميل بنجاح" 
+            : "تم تسجيل سند القبض وتخفيض مديونية العميل بنجاح");
     }
 
     public async Task<PagedResult<OperatingExpenseDto>> GetExpensesAsync(ExpenseFilterDto filter, CancellationToken ct = default)

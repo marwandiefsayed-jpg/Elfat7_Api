@@ -2,6 +2,7 @@ using Elfat7.Application.Common;
 using Elfat7.Application.DTOs.Customers;
 using Elfat7.Application.Interfaces;
 using Elfat7.Domain.Entities;
+using Elfat7.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Elfat7.Infrastructure.Services;
@@ -48,7 +49,11 @@ public class CustomerService : ICustomerService
                 Address = c.Address,
                 CommercialRegistration = c.CommercialRegistration,
                 CreditLimit = c.CreditLimit,
-                Balance = c.Balance,
+                Balance = c.SalesInvoices.Any(si => si.Status != SalesInvoiceStatus.Cancelled && si.Status != SalesInvoiceStatus.Draft)
+                    ? (c.SalesInvoices
+                        .Where(si => si.Status != SalesInvoiceStatus.Cancelled && si.Status != SalesInvoiceStatus.Draft)
+                        .Sum(si => (decimal?)(si.TotalAmount - si.PaidAmount)) ?? 0)
+                    : c.Balance,
                 Notes = c.Notes,
                 IsActive = c.IsActive,
                 CreatedAt = c.CreatedAt
@@ -87,7 +92,11 @@ public class CustomerService : ICustomerService
                 Address = c.Address,
                 CommercialRegistration = c.CommercialRegistration,
                 CreditLimit = c.CreditLimit,
-                Balance = c.Balance,
+                Balance = c.SalesInvoices.Any(si => si.Status != SalesInvoiceStatus.Cancelled && si.Status != SalesInvoiceStatus.Draft)
+                    ? (c.SalesInvoices
+                        .Where(si => si.Status != SalesInvoiceStatus.Cancelled && si.Status != SalesInvoiceStatus.Draft)
+                        .Sum(si => (decimal?)(si.TotalAmount - si.PaidAmount)) ?? 0)
+                    : c.Balance,
                 Notes = c.Notes,
                 IsActive = c.IsActive,
                 CreatedAt = c.CreatedAt
@@ -99,11 +108,31 @@ public class CustomerService : ICustomerService
     {
         var customer = await _context.Customers
             .AsNoTracking()
-            .Include(c => c.SalesInvoices.OrderByDescending(i => i.Id).Take(5))
-            .Include(c => c.Payments.OrderByDescending(p => p.Id).Take(5))
+            .Include(c => c.SalesInvoices)
+                .ThenInclude(i => i.Items)
+                    .ThenInclude(it => it.Product)
+            .Include(c => c.Payments)
+                .ThenInclude(p => p.Treasury)
+            .Include(c => c.Payments)
+                .ThenInclude(p => p.SalesInvoice)
             .FirstOrDefaultAsync(c => c.Code == code, ct);
 
         if (customer == null) return null;
+
+        var confirmedInvoices = customer.SalesInvoices
+            .Where(si => si.Status != SalesInvoiceStatus.Cancelled && si.Status != SalesInvoiceStatus.Draft)
+            .OrderByDescending(si => si.InvoiceDate)
+            .ThenByDescending(si => si.Id)
+            .ToList();
+
+        var invoiceDebt = confirmedInvoices.Sum(si => si.TotalAmount - si.PaidAmount);
+
+        var actualBalance = confirmedInvoices.Any()
+            ? Math.Max(0, invoiceDebt)
+            : customer.Balance;
+
+        var totalInvoiced = confirmedInvoices.Sum(si => si.TotalAmount);
+        var totalPaid = Math.Max(0, totalInvoiced - actualBalance);
 
         return new CustomerDetailsDto
         {
@@ -113,25 +142,49 @@ public class CustomerService : ICustomerService
             Address = customer.Address,
             CommercialRegistration = customer.CommercialRegistration,
             CreditLimit = customer.CreditLimit,
-            Balance = customer.Balance,
+            Balance = actualBalance,
+            TotalInvoiced = totalInvoiced,
+            TotalPaid = totalPaid,
             Notes = customer.Notes,
             IsActive = customer.IsActive,
             CreatedAt = customer.CreatedAt,
-            RecentInvoices = customer.SalesInvoices.Select(i => new CustomerRecentInvoiceDto
-            {
-                InvoiceNumber = i.InvoiceNumber,
-                InvoiceDate = i.InvoiceDate,
-                Status = i.Status.ToArabic(),
-                TotalAmount = i.TotalAmount,
-                RemainingAmount = i.RemainingAmount
-            }).ToList(),
-            RecentPayments = customer.Payments.Select(p => new CustomerRecentPaymentDto
-            {
-                ReceiptNumber = p.ReceiptNumber,
-                PaymentDate = p.PaymentDate,
-                Amount = p.Amount,
-                PaymentMethod = p.PaymentMethod.ToArabic()
-            }).ToList()
+            RecentInvoices = customer.SalesInvoices
+                .OrderByDescending(i => i.InvoiceDate)
+                .ThenByDescending(i => i.Id)
+                .Select(i => new CustomerRecentInvoiceDto
+                {
+                    InvoiceNumber = i.InvoiceNumber,
+                    InvoiceDate = i.InvoiceDate,
+                    Status = i.Status.ToArabic(),
+                    PaymentStatus = i.PaymentStatus.ToArabic(),
+                    TotalAmount = i.TotalAmount,
+                    PaidAmount = i.PaidAmount,
+                    RemainingAmount = Math.Max(0, i.TotalAmount - i.PaidAmount),
+                    Items = i.Items.Select(it => new CustomerInvoiceItemSummaryDto
+                    {
+                        ProductCode = it.Product?.Code ?? "",
+                        ProductName = it.Product?.Name ?? "",
+                        Quantity = it.Quantity,
+                        Unit = !string.IsNullOrWhiteSpace(it.Unit) ? it.Unit : (it.Product?.Unit ?? "كجم"),
+                        UnitPrice = it.UnitPrice,
+                        LineTotal = it.LineTotal
+                    }).ToList(),
+                    ItemsSummary = string.Join("، ", i.Items.Select(it => $"{it.Product?.Name ?? ""} ({it.Quantity:N0} {(!string.IsNullOrWhiteSpace(it.Unit) ? it.Unit : (it.Product?.Unit ?? "كجم"))})"))
+                }).ToList(),
+            RecentPayments = customer.Payments
+                .OrderByDescending(p => p.PaymentDate)
+                .ThenByDescending(p => p.Id)
+                .Select(p => new CustomerRecentPaymentDto
+                {
+                    ReceiptNumber = p.ReceiptNumber,
+                    PaymentDate = p.PaymentDate,
+                    Amount = p.Amount,
+                    PaymentMethod = p.PaymentMethod.ToArabic(),
+                    SalesInvoiceNumber = p.SalesInvoice?.InvoiceNumber,
+                    ReferenceNumber = p.ReferenceNumber,
+                    Notes = p.Notes,
+                    TreasuryName = p.Treasury?.Name
+                }).ToList()
         };
     }
 
@@ -147,7 +200,7 @@ public class CustomerService : ICustomerService
             Phone = dto.Phone.Trim(),
             Address = dto.Address?.Trim(),
             CommercialRegistration = dto.CommercialRegistration?.Trim(),
-            CreditLimit = dto.CreditLimit,
+            CreditLimit = dto.CreditLimit ?? 0,
             Notes = dto.Notes?.Trim(),
             Balance = 0,
             IsActive = true
@@ -181,7 +234,7 @@ public class CustomerService : ICustomerService
         customer.Phone = dto.Phone.Trim();
         customer.Address = dto.Address?.Trim();
         customer.CommercialRegistration = dto.CommercialRegistration?.Trim();
-        customer.CreditLimit = dto.CreditLimit;
+        if (dto.CreditLimit.HasValue) customer.CreditLimit = dto.CreditLimit.Value;
         customer.Notes = dto.Notes?.Trim();
         customer.IsActive = dto.IsActive;
 
@@ -222,5 +275,28 @@ public class CustomerService : ICustomerService
         _context.Customers.Remove(customer);
         await _context.SaveChangesAsync(ct);
         return Result.Success("تم حذف العميل بنجاح");
+    }
+
+    public async Task<Result> ReconcileCustomerBalancesAsync(CancellationToken ct = default)
+    {
+        var customers = await _context.Customers
+            .Include(c => c.SalesInvoices)
+            .Include(c => c.Payments)
+            .Include(c => c.SalesReturns)
+            .ToListAsync(ct);
+
+        foreach (var c in customers)
+        {
+            var invoiceDebt = c.SalesInvoices
+                .Where(si => si.Status != SalesInvoiceStatus.Cancelled && si.Status != SalesInvoiceStatus.Draft)
+                .Sum(si => si.TotalAmount - si.PaidAmount);
+
+            c.Balance = c.SalesInvoices.Any(si => si.Status != SalesInvoiceStatus.Cancelled && si.Status != SalesInvoiceStatus.Draft)
+                ? Math.Max(0, invoiceDebt)
+                : c.Balance;
+        }
+
+        await _context.SaveChangesAsync(ct);
+        return Result.Success("تمت مطابقة وإعادة احتساب أرصدة العملاء بنجاح");
     }
 }

@@ -506,7 +506,6 @@ public class PdfReportService : IPdfReportService
                             columns.RelativeColumn(2);
                             columns.RelativeColumn(3);
                             columns.RelativeColumn(2);
-                            columns.RelativeColumn(2);
                         });
 
                         table.Header(header =>
@@ -515,7 +514,6 @@ public class PdfReportService : IPdfReportService
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("اسم العميل").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("رقم الهاتف").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("العنوان").Bold();
-                            header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("الحد الائتماني").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("الرصيد المستحق (مدين)").Bold();
                         });
 
@@ -525,7 +523,6 @@ public class PdfReportService : IPdfReportService
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(c.Name).Bold();
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(c.Phone);
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(c.Address ?? "-");
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(c.CreditLimitFormatted);
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(c.BalanceFormatted).FontColor(c.Balance > 0 ? Colors.Red.Darken2 : Colors.Grey.Darken3);
                         }
                     });
@@ -1680,7 +1677,6 @@ public class PdfReportService : IPdfReportService
                             columns.ConstantColumn(80);
                             columns.RelativeColumn(4);
                             columns.RelativeColumn(3);
-                            columns.RelativeColumn(2);
                             columns.RelativeColumn(3);
                         });
 
@@ -1689,7 +1685,6 @@ public class PdfReportService : IPdfReportService
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("كود العميل").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("اسم العميل").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("رقم الهاتف").Bold();
-                            header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("الحد الائتماني").Bold();
                             header.Cell().Background(Colors.Grey.Lighten2).Padding(4).Text("الرصيد المدين المستحق").Bold();
                         });
 
@@ -1698,7 +1693,6 @@ public class PdfReportService : IPdfReportService
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(item.CustomerCode);
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(item.CustomerName).Bold();
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(item.Phone);
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(ArabicLocalizationHelper.FormatCurrency(item.CreditLimit));
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(item.BalanceFormatted).FontColor(item.Balance > 0 ? Colors.Red.Darken2 : Colors.Grey.Darken3).Bold();
                         }
                     });

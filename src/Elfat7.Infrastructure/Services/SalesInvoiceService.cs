@@ -24,6 +24,7 @@ public class SalesInvoiceService : ISalesInvoiceService
             .Include(si => si.Warehouse)
             .Include(si => si.SalesOrder)
             .Include(si => si.Items)
+                .ThenInclude(i => i.Product)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
@@ -69,7 +70,20 @@ public class SalesInvoiceService : ISalesInvoiceService
                 DiscountAmount = si.DiscountAmount,
                 TotalAmount = si.TotalAmount,
                 PaidAmount = si.PaidAmount,
-                ItemsCount = si.Items.Count
+                RemainingAmount = si.TotalAmount - si.PaidAmount,
+                ItemsCount = si.Items.Count,
+                Items = si.Items.Select(i => new SalesInvoiceItemDto
+                {
+                    ProductCode = i.Product != null ? i.Product.Code : "",
+                    ProductName = i.Product != null ? i.Product.Name : "",
+                    Unit = !string.IsNullOrWhiteSpace(i.Unit) ? i.Unit : (i.Product != null ? i.Product.Unit : "كجم"),
+                    ConversionFactor = i.ConversionFactor > 0 ? i.ConversionFactor : 1,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    LineTotal = i.LineTotal,
+                    DeliveredQuantity = i.DeliveredQuantity,
+                    RemainingQuantity = i.RemainingQuantity
+                }).ToList()
             })
             .ToListAsync(ct);
 
@@ -84,6 +98,7 @@ public class SalesInvoiceService : ISalesInvoiceService
             .Include(si => si.Warehouse)
             .Include(si => si.SalesOrder)
             .Include(si => si.Items)
+                .ThenInclude(i => i.Product)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
@@ -125,24 +140,43 @@ public class SalesInvoiceService : ISalesInvoiceService
                 DiscountAmount = si.DiscountAmount,
                 TotalAmount = si.TotalAmount,
                 PaidAmount = si.PaidAmount,
-                ItemsCount = si.Items.Count
+                RemainingAmount = si.TotalAmount - si.PaidAmount,
+                ItemsCount = si.Items.Count,
+                Items = si.Items.Select(i => new SalesInvoiceItemDto
+                {
+                    ProductCode = i.Product != null ? i.Product.Code : "",
+                    ProductName = i.Product != null ? i.Product.Name : "",
+                    Unit = !string.IsNullOrWhiteSpace(i.Unit) ? i.Unit : (i.Product != null ? i.Product.Unit : "كجم"),
+                    ConversionFactor = i.ConversionFactor > 0 ? i.ConversionFactor : 1,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    LineTotal = i.LineTotal,
+                    DeliveredQuantity = i.DeliveredQuantity,
+                    RemainingQuantity = i.RemainingQuantity
+                }).ToList()
             })
             .ToListAsync(ct);
     }
 
     public async Task<SalesInvoiceDetailsDto?> GetSalesInvoiceByNumberAsync(string invoiceNumber, CancellationToken ct = default)
     {
-        var inv = await _context.SalesInvoices
+        bool isNumeric = int.TryParse(invoiceNumber, out var invoiceId);
+
+        var query = _context.SalesInvoices
             .AsNoTracking()
             .Include(s => s.Customer)
             .Include(s => s.Warehouse)
             .Include(s => s.SalesOrder)
             .Include(s => s.Items)
-            .ThenInclude(i => i.Product)
+                .ThenInclude(i => i.Product)
             .Include(s => s.Deliveries)
-            .ThenInclude(d => d.Warehouse)
+                .ThenInclude(d => d.Warehouse)
             .Include(s => s.Returns)
-            .FirstOrDefaultAsync(s => s.InvoiceNumber == invoiceNumber, ct);
+            .Include(s => s.Payments);
+
+        var inv = isNumeric
+            ? await query.FirstOrDefaultAsync(s => s.InvoiceNumber == invoiceNumber || s.Id == invoiceId, ct)
+            : await query.FirstOrDefaultAsync(s => s.InvoiceNumber == invoiceNumber, ct);
 
         if (inv == null) return null;
 
@@ -151,6 +185,8 @@ public class SalesInvoiceService : ISalesInvoiceService
             InvoiceNumber = inv.InvoiceNumber,
             CustomerCode = inv.Customer?.Code ?? "",
             CustomerName = inv.Customer?.Name ?? "",
+            CustomerPhone = inv.Customer?.Phone,
+            CustomerAddress = inv.Customer?.Address,
             WarehouseCode = inv.Warehouse?.Code ?? "",
             WarehouseName = inv.Warehouse?.Name ?? "",
             SalesOrderNumber = inv.SalesOrder?.OrderNumber,
@@ -162,20 +198,23 @@ public class SalesInvoiceService : ISalesInvoiceService
             DiscountAmount = inv.DiscountAmount,
             TotalAmount = inv.TotalAmount,
             PaidAmount = inv.PaidAmount,
+            RemainingAmount = inv.TotalAmount - inv.PaidAmount,
             Notes = inv.Notes,
             ItemsCount = inv.Items.Count,
             Items = inv.Items.Select(i => new SalesInvoiceItemDto
             {
                 ProductCode = i.Product?.Code ?? "",
                 ProductName = i.Product?.Name ?? "",
-                Unit = !string.IsNullOrWhiteSpace(i.Unit) ? i.Unit : (i.Product?.Unit ?? ""),
+                Unit = !string.IsNullOrWhiteSpace(i.Unit) ? i.Unit : (i.Product?.Unit ?? "كجم"),
+                BaseUnit = i.Product?.Unit ?? "كجم",
                 ConversionFactor = i.ConversionFactor > 0 ? i.ConversionFactor : 1,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
                 UnitCost = i.UnitCost,
                 DiscountAmount = i.DiscountAmount,
                 LineTotal = i.LineTotal,
-                DeliveredQuantity = i.DeliveredQuantity
+                DeliveredQuantity = i.DeliveredQuantity,
+                RemainingQuantity = Math.Max(0, i.Quantity - i.DeliveredQuantity)
             }).ToList(),
             Deliveries = inv.Deliveries.Select(d => new DeliverySummaryDto
             {
@@ -190,6 +229,15 @@ public class SalesInvoiceService : ISalesInvoiceService
                 ReturnDate = r.ReturnDate,
                 TotalAmount = r.TotalAmount,
                 Reason = r.Reason
+            }).ToList(),
+            Payments = inv.Payments.OrderByDescending(p => p.PaymentDate).ThenByDescending(p => p.Id).Select(p => new SalesInvoicePaymentDto
+            {
+                ReceiptNumber = p.ReceiptNumber,
+                Amount = p.Amount,
+                PaymentDate = p.PaymentDate,
+                PaymentMethodArabic = p.PaymentMethod.ToArabic(),
+                ReferenceNumber = p.ReferenceNumber,
+                Notes = p.Notes
             }).ToList()
         };
     }
@@ -353,7 +401,20 @@ public class SalesInvoiceService : ISalesInvoiceService
             DiscountAmount = invoice.DiscountAmount,
             TotalAmount = invoice.TotalAmount,
             PaidAmount = invoice.PaidAmount,
-            ItemsCount = invoice.Items.Count
+            RemainingAmount = invoice.TotalAmount - invoice.PaidAmount,
+            ItemsCount = invoice.Items.Count,
+            Items = invoice.Items.Select(i => new SalesInvoiceItemDto
+            {
+                ProductCode = i.Product != null ? i.Product.Code : "",
+                ProductName = i.Product != null ? i.Product.Name : "",
+                Unit = !string.IsNullOrWhiteSpace(i.Unit) ? i.Unit : (i.Product != null ? i.Product.Unit : "كجم"),
+                ConversionFactor = i.ConversionFactor > 0 ? i.ConversionFactor : 1,
+                Quantity = i.Quantity,
+                UnitPrice = i.UnitPrice,
+                LineTotal = i.LineTotal,
+                DeliveredQuantity = i.DeliveredQuantity,
+                RemainingQuantity = i.RemainingQuantity
+            }).ToList()
         }, "تم إنشاء وتأكيد فاتورة المبيعات وخصم الكميات المباعة من رصيد المستودع بنجاح");
     }
 

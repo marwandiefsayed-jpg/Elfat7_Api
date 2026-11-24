@@ -80,17 +80,38 @@ public class SalesInvoiceDto
     public decimal TotalAmount { get; set; }
     public string TotalAmountFormatted => ArabicLocalizationHelper.FormatCurrency(TotalAmount);
     public decimal PaidAmount { get; set; }
-    public decimal RemainingAmount { get; set; }
+    private decimal? _remainingAmount;
+    public decimal RemainingAmount
+    {
+        get => _remainingAmount ?? Math.Max(0, TotalAmount - PaidAmount);
+        set => _remainingAmount = value;
+    }
     public string RemainingAmountFormatted => ArabicLocalizationHelper.FormatCurrency(RemainingAmount);
     public int ItemsCount { get; set; }
+    public List<SalesInvoiceItemDto> Items { get; set; } = new();
+    public string ItemsSummary { get; set; } = string.Empty;
 }
 
 public class SalesInvoiceDetailsDto : SalesInvoiceDto
 {
+    public string? CustomerPhone { get; set; }
+    public string? CustomerAddress { get; set; }
     public string? Notes { get; set; }
-    public List<SalesInvoiceItemDto> Items { get; set; } = new();
     public List<DeliverySummaryDto> Deliveries { get; set; } = new();
     public List<SalesReturnSummaryDto> Returns { get; set; } = new();
+    public List<SalesInvoicePaymentDto> Payments { get; set; } = new();
+}
+
+public class SalesInvoicePaymentDto
+{
+    public string ReceiptNumber { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string AmountFormatted => ArabicLocalizationHelper.FormatCurrency(Amount);
+    public DateTime PaymentDate { get; set; }
+    public string PaymentDateFormatted => ArabicLocalizationHelper.FormatDate(PaymentDate);
+    public string PaymentMethodArabic { get; set; } = string.Empty;
+    public string? ReferenceNumber { get; set; }
+    public string? Notes { get; set; }
 }
 
 public class SalesInvoiceItemDto
@@ -98,6 +119,7 @@ public class SalesInvoiceItemDto
     public string ProductCode { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string Unit { get; set; } = string.Empty;
+    public string BaseUnit { get; set; } = "كجم";
     public decimal ConversionFactor { get; set; } = 1;
     public decimal Quantity { get; set; }
     public decimal BaseQuantity => Quantity * (ConversionFactor > 0 ? ConversionFactor : 1);

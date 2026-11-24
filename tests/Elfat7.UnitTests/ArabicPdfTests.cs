@@ -64,7 +64,7 @@ public class ArabicPdfTests
         // Arrange
         var customers = new List<CustomerDto>
         {
-            new() { Code = "CUST-0001", Name = "شركة الدلتا لتجارة الجملة", Phone = "01011223344", CreditLimit = 500000, Balance = 65000, IsActive = true }
+            new() { Code = "CUST-0001", Name = "شركة الدلتا لتجارة الجملة", Phone = "01011223344", Balance = 65000, IsActive = true }
         };
 
         // Act

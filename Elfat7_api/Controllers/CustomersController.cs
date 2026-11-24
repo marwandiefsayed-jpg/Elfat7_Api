@@ -56,6 +56,13 @@ public class CustomersController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("reconcile")]
+    public async Task<IActionResult> ReconcileBalances(CancellationToken ct)
+    {
+        var result = await _customerService.ReconcileCustomerBalancesAsync(ct);
+        return Ok(result);
+    }
+
     [HttpGet("export/pdf")]
     public async Task<IActionResult> ExportPdf([FromQuery] CustomerFilterDto filter, CancellationToken ct)
     {

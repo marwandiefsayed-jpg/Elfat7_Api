@@ -1,5 +1,6 @@
 using Elfat7.Application.DTOs.GoodsReceiving;
 using Elfat7.Application.DTOs.Inventory;
+using Elfat7.Application.DTOs.Products;
 using Elfat7.Application.DTOs.Purchasing;
 using Elfat7.Domain.Entities;
 using Elfat7.Domain.Enums;
@@ -228,5 +229,60 @@ public class InventoryAndCostingTests
         movement.Should().NotBeNull();
         movement!.Quantity.Should().Be(1000m);
         movement.MovementType.Should().Be(StockMovementType.AdjustmentIncrease);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_ShouldProperlyDeleteRemovedSellingUnits()
+    {
+        // Arrange
+        var context = CreateInMemoryDbContext();
+        var category = new ProductCategory { Code = "CAT-01", Name = "حبوب وغلال" };
+        var product = new Product
+        {
+            Code = "PRD-0099",
+            Name = "لب عباد عالي",
+            Unit = "كجم",
+            Category = category,
+            SellingUnits = new List<ProductSellingUnit>
+            {
+                new() { UnitName = "كجم", ConversionFactor = 1, SellingPrice = 160m, IsDefault = false },
+                new() { UnitName = "شكارة 25كجم", ConversionFactor = 25, SellingPrice = 3500m, IsDefault = true }
+            }
+        };
+
+        await context.ProductCategories.AddAsync(category);
+        await context.Products.AddAsync(product);
+        await context.SaveChangesAsync();
+
+        var productService = new ProductService(context);
+
+        // Act: حذف وحدة "شكارة 25كجم" والإبقاء فقط على وحدة "كجم"
+        var updateResult = await productService.UpdateProductAsync("PRD-0099", new UpdateProductDto
+        {
+            Name = "لب عباد عالي ممتاز",
+            Unit = "كجم",
+            CategoryCode = "CAT-01",
+            SellingUnits = new List<CreateProductSellingUnitDto>
+            {
+                new() { UnitName = "كجم", ConversionFactor = 1, SellingPrice = 175m, IsDefault = true }
+            }
+        });
+
+        // Assert
+        updateResult.Succeeded.Should().BeTrue();
+        updateResult.Data!.SellingUnits.Should().HaveCount(1);
+        updateResult.Data!.SellingUnits[0].UnitName.Should().Be("كجم");
+        updateResult.Data!.SellingUnits[0].SellingPrice.Should().Be(175m);
+        updateResult.Data!.SellingUnits[0].IsDefault.Should().BeTrue();
+
+        // Verify direct from database
+        var dbProduct = await productService.GetProductByCodeAsync("PRD-0099");
+        dbProduct.Should().NotBeNull();
+        dbProduct!.SellingUnits.Should().HaveCount(1);
+        dbProduct.SellingUnits.Should().NotContain(u => u.UnitName == "شكارة 25كجم");
+
+        var dbUnits = await context.ProductSellingUnits.Where(u => u.ProductId == product.Id).ToListAsync();
+        dbUnits.Should().HaveCount(1);
+        dbUnits[0].UnitName.Should().Be("كجم");
     }
 }

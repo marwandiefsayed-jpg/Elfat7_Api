@@ -364,7 +364,8 @@ public class EntityConfigurations :
         builder.HasOne(x => x.Treasury)
             .WithMany()
             .HasForeignKey(x => x.TreasuryId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne(x => x.SalesInvoice)
             .WithMany(x => x.Payments)

@@ -93,7 +93,7 @@ public class CustomerPaymentDto
 public class CreateCustomerPaymentDto
 {
     public string CustomerCode { get; set; } = string.Empty;
-    public string TreasuryCode { get; set; } = string.Empty;
+    public string? TreasuryCode { get; set; }
     public string? SalesInvoiceNumber { get; set; }
     public decimal Amount { get; set; }
     public DateTime? PaymentDate { get; set; }

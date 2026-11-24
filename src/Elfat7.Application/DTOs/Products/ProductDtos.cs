@@ -37,6 +37,7 @@ public class ProductSellingUnitDto
 
 public class CreateProductSellingUnitDto
 {
+    public int? Id { get; set; }
     public string UnitName { get; set; } = string.Empty;
     public decimal ConversionFactor { get; set; } = 1;
     public decimal SellingPrice { get; set; }
@@ -82,8 +83,8 @@ public class CreateProductDto
     public string Name { get; set; } = string.Empty;
     public string? CategoryCode { get; set; }
     public string Unit { get; set; } = "طن";
-    public decimal DefaultPurchasePrice { get; set; }
-    public decimal DefaultSellingPrice { get; set; }
+    public decimal? DefaultPurchasePrice { get; set; }
+    public decimal? DefaultSellingPrice { get; set; }
     public string? Description { get; set; }
     public List<CreateProductSellingUnitDto> SellingUnits { get; set; } = new();
 }
@@ -93,8 +94,8 @@ public class UpdateProductDto
     public string Name { get; set; } = string.Empty;
     public string? CategoryCode { get; set; }
     public string Unit { get; set; } = "طن";
-    public decimal DefaultPurchasePrice { get; set; }
-    public decimal DefaultSellingPrice { get; set; }
+    public decimal? DefaultPurchasePrice { get; set; }
+    public decimal? DefaultSellingPrice { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
     public List<CreateProductSellingUnitDto> SellingUnits { get; set; } = new();

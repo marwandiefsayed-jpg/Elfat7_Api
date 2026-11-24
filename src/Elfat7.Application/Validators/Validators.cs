@@ -46,8 +46,14 @@ public class CreateProductDtoValidator : AbstractValidator<CreateProductDto>
         RuleFor(x => x.Name).NotEmpty().WithMessage("اسم الصنف مطلوب");
         RuleFor(x => x.CategoryCode).NotEmpty().WithMessage("كود تصنيف الصنف مطلوب");
         RuleFor(x => x.Unit).NotEmpty().WithMessage("وحدة القياس مطلوبة (مثل: طن، شيكارة)");
-        RuleFor(x => x.DefaultPurchasePrice).GreaterThanOrEqualTo(0).WithMessage("سعر الشراء الافتراضي لا يمكن أن يكون سالباً");
-        RuleFor(x => x.DefaultSellingPrice).GreaterThanOrEqualTo(0).WithMessage("سعر البيع الافتراضي لا يمكن أن يكون سالباً");
+        When(x => x.DefaultPurchasePrice.HasValue, () =>
+        {
+            RuleFor(x => x.DefaultPurchasePrice!.Value).GreaterThanOrEqualTo(0).WithMessage("سعر الشراء الافتراضي لا يمكن أن يكون سالباً");
+        });
+        When(x => x.DefaultSellingPrice.HasValue, () =>
+        {
+            RuleFor(x => x.DefaultSellingPrice!.Value).GreaterThanOrEqualTo(0).WithMessage("سعر البيع الافتراضي لا يمكن أن يكون سالباً");
+        });
     }
 }
 
@@ -65,7 +71,6 @@ public class CreateCustomerDtoValidator : AbstractValidator<CreateCustomerDto>
     {
         RuleFor(x => x.Name).NotEmpty().WithMessage("اسم العميل مطلوب");
         RuleFor(x => x.Phone).NotEmpty().WithMessage("رقم هاتف العميل مطلوب");
-        RuleFor(x => x.CreditLimit).GreaterThanOrEqualTo(0).WithMessage("الحد الائتماني لا يمكن أن يكون سالباً");
     }
 }
 
@@ -209,7 +214,6 @@ public class CreateCustomerPaymentDtoValidator : AbstractValidator<CreateCustome
     public CreateCustomerPaymentDtoValidator()
     {
         RuleFor(x => x.CustomerCode).NotEmpty().WithMessage("كود العميل مطلوب");
-        RuleFor(x => x.TreasuryCode).NotEmpty().WithMessage("كود الخزينة أو الحساب البنكي مطلوب");
         RuleFor(x => x.Amount).GreaterThan(0).WithMessage("مبلغ التحصيل يجب أن يكون أكبر من صفر");
     }
 }

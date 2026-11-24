@@ -167,7 +167,7 @@ public class CustomerBalancesReportItemDto
     public string CustomerCode { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
-    public decimal CreditLimit { get; set; }
+    public decimal? CreditLimit { get; set; }
     public decimal Balance { get; set; }
     public string BalanceFormatted => ArabicLocalizationHelper.FormatCurrency(Balance);
 }

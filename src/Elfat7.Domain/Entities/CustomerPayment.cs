@@ -8,7 +8,7 @@ public class CustomerPayment : BaseEntity
     public string ReceiptNumber { get; set; } = string.Empty;
     public int CustomerId { get; set; }
     public Customer? Customer { get; set; }
-    public int TreasuryId { get; set; }
+    public int? TreasuryId { get; set; }
     public Treasury? Treasury { get; set; }
     public int? SalesInvoiceId { get; set; }
     public SalesInvoice? SalesInvoice { get; set; }

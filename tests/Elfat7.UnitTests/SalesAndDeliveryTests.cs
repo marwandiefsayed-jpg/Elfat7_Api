@@ -250,4 +250,73 @@ public class SalesAndDeliveryTests
         savedInv.Items[0].BaseQuantity.Should().Be(500); // 10 * 50
         savedInv.Items[0].LineTotal.Should().Be(14500m);
     }
+
+    [Fact]
+    public async Task GetSalesInvoices_ShouldReturnCorrectRemainingAmount_AndIncludeItems()
+    {
+        // Arrange
+        var context = CreateInMemoryDbContext();
+        var customer = new Customer { Code = "CUST-0077", Name = "محمود السيد", Phone = "01011223344", Balance = 0 };
+        var category = new ProductCategory { Code = "CAT-01", Name = "حبوب وغلال" };
+        var product = new Product
+        {
+            Code = "PRD-0077",
+            Name = "لب سوبر فاخر",
+            Unit = "كجم",
+            Category = category
+        };
+        var warehouse = new Warehouse { Code = "WH-01", Name = "المستودع الرئيسي" };
+        var stock = new WarehouseStock { Warehouse = warehouse, Product = product, Quantity = 1000m };
+
+        await context.Customers.AddAsync(customer);
+        await context.ProductCategories.AddAsync(category);
+        await context.Products.AddAsync(product);
+        await context.Warehouses.AddAsync(warehouse);
+        await context.WarehouseStocks.AddAsync(stock);
+        await context.SaveChangesAsync();
+
+        var invoiceService = new SalesInvoiceService(context);
+
+        // Act: Create invoice of 40,000 with paid 10,000 -> remaining 30,000
+        var createResult = await invoiceService.CreateSalesInvoiceAsync(new CreateSalesInvoiceDto
+        {
+            CustomerCode = "CUST-0077",
+            WarehouseCode = "WH-01",
+            AutoConfirm = true,
+            PaidAmount = 10000m,
+            Items = new List<CreateSalesInvoiceItemDto>
+            {
+                new()
+                {
+                    ProductCode = "PRD-0077",
+                    Unit = "شكارة 25كجم",
+                    ConversionFactor = 25,
+                    Quantity = 10,
+                    UnitPrice = 4000m
+                }
+            }
+        });
+
+        createResult.Succeeded.Should().BeTrue();
+
+        // Query invoice list
+        var listResult = await invoiceService.GetSalesInvoicesAsync(new SalesInvoiceFilterDto { CustomerCode = "CUST-0077" });
+
+        // Assert
+        listResult.Items.Should().HaveCount(1);
+        var inv = listResult.Items.First();
+        inv.TotalAmount.Should().Be(40000m);
+        inv.PaidAmount.Should().Be(10000m);
+        inv.RemainingAmount.Should().Be(30000m); // MUST NOT BE 0
+        inv.Items.Should().HaveCount(1);
+        inv.Items.First().ProductName.Should().Be("لب سوبر فاخر");
+        inv.Items.First().Unit.Should().Be("شكارة 25كجم");
+        inv.Items.First().Quantity.Should().Be(10);
+
+        // Verify CustomerService also reports the exact same balance
+        var customerService = new CustomerService(context);
+        var custResult = await customerService.GetCustomersAsync(new Application.DTOs.Customers.CustomerFilterDto { SearchTerm = "CUST-0077" });
+        custResult.Items.Should().HaveCount(1);
+        custResult.Items.First().Balance.Should().Be(30000m);
+    }
 }

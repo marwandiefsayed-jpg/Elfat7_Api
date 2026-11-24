@@ -173,15 +173,20 @@ public class ProductService : IProductService
         var count = await _context.Products.CountAsync(ct);
         var code = $"PRD-{(count + 1):D4}";
 
+        var defaultPurchasePrice = dto.DefaultPurchasePrice 
+            ?? (dto.SellingUnits?.FirstOrDefault(u => u.PurchasePrice > 0)?.PurchasePrice ?? 0);
+        var defaultSellingPrice = dto.DefaultSellingPrice 
+            ?? (dto.SellingUnits?.FirstOrDefault(u => u.SellingPrice > 0)?.SellingPrice ?? 0);
+
         var product = new Product
         {
             Code = code,
             Name = dto.Name.Trim(),
             CategoryId = category?.Id,
             Unit = dto.Unit.Trim(),
-            DefaultPurchasePrice = dto.DefaultPurchasePrice,
-            DefaultSellingPrice = dto.DefaultSellingPrice,
-            AverageCost = dto.DefaultPurchasePrice,
+            DefaultPurchasePrice = defaultPurchasePrice,
+            DefaultSellingPrice = defaultSellingPrice,
+            AverageCost = defaultPurchasePrice,
             Description = dto.Description?.Trim(),
             IsActive = true
         };
@@ -196,8 +201,8 @@ public class ProductService : IProductService
                     {
                         UnitName = u.UnitName.Trim(),
                         ConversionFactor = u.ConversionFactor > 0 ? u.ConversionFactor : 1,
-                        SellingPrice = u.SellingPrice > 0 ? u.SellingPrice : dto.DefaultSellingPrice,
-                        PurchasePrice = u.PurchasePrice > 0 ? u.PurchasePrice : dto.DefaultPurchasePrice,
+                        SellingPrice = u.SellingPrice,
+                        PurchasePrice = u.PurchasePrice,
                         IsDefault = u.IsDefault
                     });
                 }
@@ -264,43 +269,79 @@ public class ProductService : IProductService
         product.Name = dto.Name.Trim();
         product.CategoryId = category?.Id ?? product.CategoryId;
         product.Unit = dto.Unit.Trim();
-        product.DefaultPurchasePrice = dto.DefaultPurchasePrice;
-        product.DefaultSellingPrice = dto.DefaultSellingPrice;
+        if (dto.DefaultPurchasePrice.HasValue)
+            product.DefaultPurchasePrice = dto.DefaultPurchasePrice.Value;
+        else if (dto.SellingUnits != null && dto.SellingUnits.Any(u => u.PurchasePrice > 0))
+            product.DefaultPurchasePrice = dto.SellingUnits.First(u => u.PurchasePrice > 0).PurchasePrice;
+
+        if (dto.DefaultSellingPrice.HasValue)
+            product.DefaultSellingPrice = dto.DefaultSellingPrice.Value;
+        else if (dto.SellingUnits != null && dto.SellingUnits.Any(u => u.SellingPrice > 0))
+            product.DefaultSellingPrice = dto.SellingUnits.First(u => u.SellingPrice > 0).SellingPrice;
+
         product.Description = dto.Description?.Trim();
         product.IsActive = dto.IsActive;
 
         if (dto.SellingUnits != null)
         {
-            _context.ProductSellingUnits.RemoveRange(product.SellingUnits);
-            product.SellingUnits.Clear();
+            var incomingIds = dto.SellingUnits
+                .Where(u => u.Id.HasValue && u.Id.Value > 0)
+                .Select(u => u.Id!.Value)
+                .ToHashSet();
 
-            foreach (var u in dto.SellingUnits)
+            var incomingNames = dto.SellingUnits
+                .Where(u => !string.IsNullOrWhiteSpace(u.UnitName))
+                .Select(u => u.UnitName.Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Units to remove: any existing unit not present in the incoming submission (neither by ID nor by name)
+            var unitsToRemove = product.SellingUnits
+                .Where(u => !incomingIds.Contains(u.Id) && !incomingNames.Contains(u.UnitName.Trim()))
+                .ToList();
+
+            foreach (var u in unitsToRemove)
             {
-                if (!string.IsNullOrWhiteSpace(u.UnitName))
+                _context.ProductSellingUnits.Remove(u);
+                product.SellingUnits.Remove(u);
+            }
+
+            // Units to update or add
+            foreach (var uDto in dto.SellingUnits.Where(u => !string.IsNullOrWhiteSpace(u.UnitName)))
+            {
+                ProductSellingUnit? existing = null;
+                if (uDto.Id.HasValue && uDto.Id.Value > 0)
                 {
-                    product.SellingUnits.Add(new ProductSellingUnit
+                    existing = product.SellingUnits.FirstOrDefault(u => u.Id == uDto.Id.Value);
+                }
+                existing ??= product.SellingUnits.FirstOrDefault(u => u.UnitName.Equals(uDto.UnitName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                if (existing != null)
+                {
+                    existing.UnitName = uDto.UnitName.Trim();
+                    existing.ConversionFactor = uDto.ConversionFactor > 0 ? uDto.ConversionFactor : 1;
+                    existing.SellingPrice = uDto.SellingPrice;
+                    existing.PurchasePrice = uDto.PurchasePrice;
+                    existing.IsDefault = uDto.IsDefault;
+                }
+                else
+                {
+                    var newUnit = new ProductSellingUnit
                     {
                         ProductId = product.Id,
-                        UnitName = u.UnitName.Trim(),
-                        ConversionFactor = u.ConversionFactor > 0 ? u.ConversionFactor : 1,
-                        SellingPrice = u.SellingPrice > 0 ? u.SellingPrice : dto.DefaultSellingPrice,
-                        PurchasePrice = u.PurchasePrice > 0 ? u.PurchasePrice : dto.DefaultPurchasePrice,
-                        IsDefault = u.IsDefault
-                    });
+                        UnitName = uDto.UnitName.Trim(),
+                        ConversionFactor = uDto.ConversionFactor > 0 ? uDto.ConversionFactor : 1,
+                        SellingPrice = uDto.SellingPrice,
+                        PurchasePrice = uDto.PurchasePrice,
+                        IsDefault = uDto.IsDefault
+                    };
+                    product.SellingUnits.Add(newUnit);
                 }
             }
 
-            if (!product.SellingUnits.Any(u => u.UnitName == product.Unit))
+            // If no unit is marked as default, ensure the first unit is default
+            if (product.SellingUnits.Any() && !product.SellingUnits.Any(u => u.IsDefault))
             {
-                product.SellingUnits.Add(new ProductSellingUnit
-                {
-                    ProductId = product.Id,
-                    UnitName = product.Unit,
-                    ConversionFactor = 1,
-                    SellingPrice = product.DefaultSellingPrice,
-                    PurchasePrice = product.DefaultPurchasePrice,
-                    IsDefault = !product.SellingUnits.Any(u => u.IsDefault)
-                });
+                product.SellingUnits.First().IsDefault = true;
             }
         }
 

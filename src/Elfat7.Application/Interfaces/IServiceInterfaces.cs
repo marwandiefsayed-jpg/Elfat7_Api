@@ -74,6 +74,7 @@ public interface ICustomerService
     Task<Result<CustomerDto>> CreateCustomerAsync(CreateCustomerDto dto, CancellationToken ct = default);
     Task<Result<CustomerDto>> UpdateCustomerAsync(string code, UpdateCustomerDto dto, CancellationToken ct = default);
     Task<Result> DeleteCustomerAsync(string code, CancellationToken ct = default);
+    Task<Result> ReconcileCustomerBalancesAsync(CancellationToken ct = default);
 }
 
 public interface IPurchaseOrderService
